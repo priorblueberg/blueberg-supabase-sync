@@ -49,9 +49,9 @@ export type Database = {
         Relationships: []
       }
       historico_cdi: {
-        Row: { data: string; taxa_anual: number }
-        Insert: { data: string; taxa_anual: number }
-        Update: { data?: string; taxa_anual?: number }
+        Row: { data: string; dia_util: boolean; taxa_anual: number }
+        Insert: { data: string; dia_util?: boolean; taxa_anual: number }
+        Update: { data?: string; dia_util?: boolean; taxa_anual?: number }
         Relationships: []
       }
       historico_dolar: {
