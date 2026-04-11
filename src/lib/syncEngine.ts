@@ -343,11 +343,7 @@ async function syncPoupancaLotes(codigoCustodia: number, userId: string, custodi
     .eq("codigo_custodia", codigoCustodia)
     .eq("user_id", userId);
 
-  // Build lotes only from applications — the engine handles FIFO redemptions
-  // during its economic replay, so we must NOT pre-apply redemptions here.
-  // Saving only application lotes avoids the old bug where FIFO was applied
-  // against nominal valor_principal (without accumulated yields), which
-  // produced incorrect remaining balances.
+  // Build lotes from applications
   interface TempLote {
     data_aplicacao: string;
     dia_aniversario: number;
@@ -366,10 +362,25 @@ async function syncPoupancaLotes(codigoCustodia: number, userId: string, custodi
         valor_principal: m.valor,
         valor_atual: m.valor,
       });
+    } else if (["Resgate", "Resgate Total"].includes(m.tipo_movimentacao)) {
+      // FIFO consumption
+      let restante = m.valor;
+      for (const lote of lotes) {
+        if (restante <= 0) break;
+        if (lote.valor_atual <= 0) continue;
+        
+        if (restante >= lote.valor_atual - 0.01) {
+          restante -= lote.valor_atual;
+          lote.valor_atual = 0;
+          lote.valor_principal = 0;
+        } else {
+          const proporcao = restante / lote.valor_atual;
+          lote.valor_principal -= lote.valor_principal * proporcao;
+          lote.valor_atual -= restante;
+          restante = 0;
+        }
+      }
     }
-    // Redemptions are NOT applied here — the poupança engine applies
-    // FIFO during its daily replay using the full economic value (with
-    // accumulated yields), which produces the correct remaining balance.
   }
 
   // Insert active lotes
