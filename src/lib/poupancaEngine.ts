@@ -312,38 +312,7 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
         }
       }
 
-      // Consolidação pós-resgate: fundir lotes ativos remanescentes em um único
-      // usando sempre o aniversário dominante da posição
-      const remaining = sortedLoteStates.filter(l => l.status === "ativo" && l.valorAtual > 0.01);
-      if (remaining.length > 1) {
-        // O primeiro lote (por data) herda tudo
-        const target = remaining.sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao))[0];
-        let sumValor = 0;
-        let sumPrincipal = 0;
-        for (const l of remaining) {
-          sumValor += l.valorAtual;
-          sumPrincipal += l.valorPrincipal;
-          if (l !== target) {
-            l.valorAtual = 0;
-            l.valorPrincipal = 0;
-            l.rendimentoAcumulado = 0;
-            l.status = "consolidado";
-          }
-        }
-        target.valorAtual = sumValor;
-        target.valorPrincipal = sumPrincipal;
-        target.rendimentoAcumulado = sumValor - sumPrincipal;
-        // Garantir aniversário dominante e recalcular ultimoAniversario
-        target.diaAniversario = dominantDia;
-        target.offsetPrimeiroCiclo = dominantOffset;
-        // Resetar ultimoAniversario para o último aniversário dominante já ocorrido
-        target.ultimoAniversario = findLastDominantAniversario(date, dominantDia);
-      } else if (remaining.length === 1) {
-        // Mesmo com um único lote remanescente, forçar aniversário dominante
-        remaining[0].diaAniversario = dominantDia;
-        remaining[0].offsetPrimeiroCiclo = dominantOffset;
-        remaining[0].ultimoAniversario = findLastDominantAniversario(date, dominantDia);
-      }
+      // Cada lote remanescente mantém seu aniversário original — sem consolidação
     }
 
     // Calculate totals
