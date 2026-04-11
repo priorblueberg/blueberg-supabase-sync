@@ -272,25 +272,44 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
     if (mov.resgates > 0) {
       let restante = mov.resgates;
       const sortedActive = [...activeLotes].sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao));
+      let frontierLote: LoteState | null = null;
 
       for (const lote of sortedActive) {
         if (restante <= 0.01) break;
         if (lote.valorPrincipal <= 0.01) continue;
 
         if (restante >= lote.valorPrincipal - 0.01) {
-          // Resgate consome todo o principal deste lote → lote eliminado
           restante -= lote.valorPrincipal;
           lote.valorAtual = 0;
           lote.valorPrincipal = 0;
           lote.rendimentoAcumulado = 0;
           lote.status = "resgatado";
         } else {
-          // Resgate parcial: consome parte do principal
           const proporcao = restante / lote.valorPrincipal;
           lote.valorPrincipal -= restante;
           lote.rendimentoAcumulado -= lote.rendimentoAcumulado * proporcao;
           lote.valorAtual = lote.valorPrincipal + lote.rendimentoAcumulado;
           restante = 0;
+          frontierLote = lote;
+        }
+      }
+
+      // Absorção pós-resgate: quando há consumo parcial (lote-fronteira),
+      // o próximo lote ativo na ordem FIFO é absorvido pelo fronteira,
+      // mantendo o aniversário do fronteira e eliminando o absorvido.
+      if (frontierLote) {
+        const nextLote = sortedActive.find(
+          (l) => l.status === "ativo" && l.id !== frontierLote!.id && l.valorAtual > 0.01
+            && l.dataAplicacao > frontierLote!.dataAplicacao
+        );
+        if (nextLote) {
+          frontierLote.valorPrincipal += nextLote.valorPrincipal;
+          frontierLote.valorAtual += nextLote.valorAtual;
+          frontierLote.rendimentoAcumulado += nextLote.rendimentoAcumulado;
+          nextLote.valorAtual = 0;
+          nextLote.valorPrincipal = 0;
+          nextLote.rendimentoAcumulado = 0;
+          nextLote.status = "resgatado";
         }
       }
     }
