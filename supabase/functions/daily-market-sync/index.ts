@@ -6,7 +6,58 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// ── Helpers ──────────────────────────────────────────────────────────
+// ── Easter & Brazilian holidays ──────────────────────────────────────
+
+function computeEaster(year: number): Date {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month - 1, day);
+}
+
+function addDays(d: Date, n: number): Date {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+function toISO(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
+function getBrazilianHolidays(year: number): Set<string> {
+  const holidays = new Set<string>();
+  // Fixed holidays
+  const fixed = [
+    [1, 1], [4, 21], [5, 1], [9, 7], [10, 12],
+    [11, 2], [11, 15], [11, 20], [12, 25],
+  ];
+  for (const [m, d] of fixed) {
+    holidays.add(`${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+  }
+  // Easter-dependent
+  const easter = computeEaster(year);
+  // Carnival: Mon + Tue before Ash Wednesday (47 and 46 days before Easter)
+  holidays.add(toISO(addDays(easter, -48))); // Carnival Monday
+  holidays.add(toISO(addDays(easter, -47))); // Carnival Tuesday
+  holidays.add(toISO(addDays(easter, -2)));  // Good Friday
+  holidays.add(toISO(addDays(easter, 60)));  // Corpus Christi
+  return holidays;
+}
 
 // ── Main handler ─────────────────────────────────────────────────────
 
@@ -532,6 +583,60 @@ Deno.serve(async (req) => {
       console.error("IPCA error:", e);
     }
 
+    // ── 8. Calendário Dias Úteis ─────────────────────────────────────
+    try {
+      // Get max date in calendar
+      const { data: maxCal } = await supabase
+        .from("calendario_dias_uteis")
+        .select("data")
+        .order("data", { ascending: false })
+        .limit(1)
+        .single();
+
+      const today = new Date();
+      const endYear = today.getFullYear() + 1;
+      const endDate = new Date(endYear, 11, 31);
+
+      const startCal = maxCal
+        ? addDays(new Date(maxCal.data + "T12:00:00"), 1)
+        : new Date(2024, 0, 1);
+
+      if (startCal <= endDate) {
+        // Collect holidays for all relevant years
+        const allHolidays = new Set<string>();
+        for (let y = startCal.getFullYear(); y <= endYear; y++) {
+          getBrazilianHolidays(y).forEach((h) => allHolidays.add(h));
+        }
+
+        const rows: { data: string; dia_util: boolean }[] = [];
+        const cursor = new Date(startCal);
+        while (cursor <= endDate) {
+          const iso = toISO(cursor);
+          const dow = cursor.getDay(); // 0=Sun, 6=Sat
+          const isWeekday = dow >= 1 && dow <= 5;
+          const isHoliday = allHolidays.has(iso);
+          rows.push({ data: iso, dia_util: isWeekday && !isHoliday });
+          cursor.setDate(cursor.getDate() + 1);
+        }
+
+        const batchSize = 500;
+        let inserted = 0;
+        for (let i = 0; i < rows.length; i += batchSize) {
+          const batch = rows.slice(i, i + batchSize);
+          const { error } = await supabase
+            .from("calendario_dias_uteis")
+            .upsert(batch, { onConflict: "data" });
+          if (error) throw new Error(`Calendar insert: ${error.message}`);
+          inserted += batch.length;
+        }
+        results.calendario = `Upserted ${inserted} calendar records through ${endYear}`;
+      } else {
+        results.calendario = "Calendar already up to date";
+      }
+    } catch (e) {
+      results.calendario = `Error: ${e instanceof Error ? e.message : String(e)}`;
+      console.error("Calendar error:", e);
+    }
 
     return new Response(JSON.stringify({ success: true, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
