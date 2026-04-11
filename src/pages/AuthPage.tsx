@@ -101,6 +101,12 @@ const AuthPage = () => {
           </form>
 
           <div className="mt-6 text-center">
+            <Link to="/cadastro" className="text-sm text-[#4a6580] hover:text-[#0a5eb8] transition-colors">
+              Não tem conta? <span className="font-semibold text-[#0a5eb8]">Cadastre-se</span>
+            </Link>
+          </div>
+
+          <div className="mt-4 text-center">
             <Link to="/" className="text-sm text-[#8da4bf] hover:text-[#0a5eb8] transition-colors">
               ← Voltar ao site
             </Link>
