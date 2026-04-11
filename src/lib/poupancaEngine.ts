@@ -405,21 +405,20 @@ export function resgatarPoupancaFIFO(
   for (const lote of sorted) {
     if (restante <= 0) break;
 
-    const disponivel = lote.valorAtual;
+    const disponivel = lote.valorPrincipal;
 
     if (restante >= disponivel - 0.01) {
-      // Consume entire lote
       valorResgatado += disponivel;
       restante -= disponivel;
       lote.status = "resgatado";
       lote.valorAtual = 0;
       lote.valorPrincipal = 0;
+      lote.rendimentoAcumulado = 0;
     } else {
-      // Partial consumption
-      const proporcao = restante / lote.valorAtual;
-      lote.valorPrincipal -= lote.valorPrincipal * proporcao;
+      const proporcao = restante / lote.valorPrincipal;
+      lote.valorPrincipal -= restante;
       lote.rendimentoAcumulado -= lote.rendimentoAcumulado * proporcao;
-      lote.valorAtual -= restante;
+      lote.valorAtual = lote.valorPrincipal + lote.rendimentoAcumulado;
       valorResgatado += restante;
       restante = 0;
     }
