@@ -265,50 +265,33 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
     // Process movimentações
     const mov = movMap.get(date) || { aplicacoes: 0, resgates: 0 };
 
-    // Process resgates: reduce lote values proportionally (FIFO within the single lote)
+    // Process resgates: FIFO baseado em valor_principal (regra Gorila).
+    // O resgate consome o principal dos lotes mais antigos primeiro.
+    // Quando o principal de um lote é totalmente consumido, o lote inteiro
+    // (incluindo rendimentos) é eliminado — rendimentos proporcionais são perdidos.
     if (mov.resgates > 0) {
       let restante = mov.resgates;
-      // Sort active lotes by application date (FIFO)
       const sortedActive = [...activeLotes].sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao));
-      let frontierLote: LoteState | null = null;
 
       for (const lote of sortedActive) {
         if (restante <= 0.01) break;
-        if (lote.valorAtual <= 0.01) continue;
+        if (lote.valorPrincipal <= 0.01) continue;
 
-        if (restante >= lote.valorAtual - 0.01) {
-          restante -= lote.valorAtual;
+        if (restante >= lote.valorPrincipal - 0.01) {
+          // Resgate consome todo o principal deste lote → lote eliminado
+          restante -= lote.valorPrincipal;
           lote.valorAtual = 0;
           lote.valorPrincipal = 0;
           lote.rendimentoAcumulado = 0;
           lote.status = "resgatado";
         } else {
-          const proporcao = restante / lote.valorAtual;
-          lote.valorPrincipal -= lote.valorPrincipal * proporcao;
+          // Resgate parcial: consome parte do principal
+          const proporcao = restante / lote.valorPrincipal;
+          lote.valorPrincipal -= restante;
           lote.rendimentoAcumulado -= lote.rendimentoAcumulado * proporcao;
-          lote.valorAtual -= restante;
+          lote.valorAtual = lote.valorPrincipal + lote.rendimentoAcumulado;
           restante = 0;
-          frontierLote = lote; // partially consumed
         }
-      }
-
-      // Regra pós-resgate: o saldo remanescente do lote parcialmente consumido
-      // (lote-fronteira) é absorvido pelo próximo lote ativo na ordem FIFO.
-      // Isso elimina aniversários órfãos e alinha o comportamento ao Gorila.
-      if (frontierLote) {
-        const nextLote = sortedActive.find(
-          l => l.status === "ativo" && l.id !== frontierLote!.id && l.valorAtual > 0.01
-        );
-        if (nextLote) {
-          nextLote.valorPrincipal += frontierLote.valorPrincipal;
-          nextLote.valorAtual += frontierLote.valorAtual;
-          nextLote.rendimentoAcumulado += frontierLote.rendimentoAcumulado;
-          frontierLote.valorAtual = 0;
-          frontierLote.valorPrincipal = 0;
-          frontierLote.rendimentoAcumulado = 0;
-          frontierLote.status = "resgatado";
-        }
-        // Se não há próximo lote, o frontier permanece como está (único lote restante)
       }
     }
 
@@ -422,21 +405,20 @@ export function resgatarPoupancaFIFO(
   for (const lote of sorted) {
     if (restante <= 0) break;
 
-    const disponivel = lote.valorAtual;
+    const disponivel = lote.valorPrincipal;
 
     if (restante >= disponivel - 0.01) {
-      // Consume entire lote
       valorResgatado += disponivel;
       restante -= disponivel;
       lote.status = "resgatado";
       lote.valorAtual = 0;
       lote.valorPrincipal = 0;
+      lote.rendimentoAcumulado = 0;
     } else {
-      // Partial consumption
-      const proporcao = restante / lote.valorAtual;
-      lote.valorPrincipal -= lote.valorPrincipal * proporcao;
+      const proporcao = restante / lote.valorPrincipal;
+      lote.valorPrincipal -= restante;
       lote.rendimentoAcumulado -= lote.rendimentoAcumulado * proporcao;
-      lote.valorAtual -= restante;
+      lote.valorAtual = lote.valorPrincipal + lote.rendimentoAcumulado;
       valorResgatado += restante;
       restante = 0;
     }
