@@ -13,7 +13,7 @@ interface Instituicao { id: string; nome: string; }
 interface Emissor { id: string; nome: string; }
 interface Categoria { id: string; nome: string; }
 
-const PAGAMENTO_OPTIONS = ["Mensal", "Bimestral", "Trimestral", "Quadrimestral", "Semestral", "No Vencimento"];
+const PAGAMENTO_OPTIONS = ["Mensal", "Bimestral", "Trimestral", "Quadrimestral", "Semestral", "Anual", "No Vencimento"];
 const MODALIDADE_OPTIONS = ["Prefixado", "Pós Fixado"];
 const INDEXADOR_OPTIONS = ["CDI", "CDI+"];
 

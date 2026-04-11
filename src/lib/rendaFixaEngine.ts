@@ -114,6 +114,7 @@ const PERIODICIDADE_MESES: Record<string, number> = {
   Quadrimestral: 4,
   Quatrimestral: 4,
   Semestral: 6,
+  Anual: 12,
 };
 
 export function gerarDatasPagamentoJuros(
