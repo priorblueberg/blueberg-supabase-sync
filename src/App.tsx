@@ -24,6 +24,7 @@ const ConfiguracoesPage = lazy(() => import("@/pages/ConfiguracoesPage"));
 // Lighter pages loaded eagerly or lazily
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const AuthPage = lazy(() => import("@/pages/AuthPage"));
+const CadastroPage = lazy(() => import("@/pages/CadastroPage"));
 const OnboardingPage = lazy(() => import("@/pages/OnboardingPage"));
 const PlanosPage = lazy(() => import("@/pages/PlanosPage"));
 const CheckoutPage = lazy(() => import("@/pages/CheckoutPage"));
@@ -96,6 +97,7 @@ const App = () => (
               {/* Public routes */}
               <Route path="/" element={<LandingPage />} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/cadastro" element={<CadastroPage />} />
               <Route path="/onboarding" element={<OnboardingRoute />} />
               
               <Route path="/planos" element={<PlanosPage />} />
