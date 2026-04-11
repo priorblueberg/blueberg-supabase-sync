@@ -468,9 +468,11 @@ export default function BoletaCustodiaDialog({
         valorExtrato = `R$ ${valorNum.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       }
 
-      const { data: inserted, error } = await supabase
+      const movId = crypto.randomUUID();
+      const { error } = await supabase
         .from("movimentacoes")
         .insert({
+          id: movId,
           user_id: userId,
           data: dateISO,
           tipo_movimentacao: tipoMovimentacao,
@@ -496,7 +498,7 @@ export default function BoletaCustodiaDialog({
 
       if (error) throw error;
 
-      await fullSyncAfterMovimentacao(inserted.id, row.categoria_id, userId, dataReferenciaISO);
+      await fullSyncAfterMovimentacao(movId, row.categoria_id, userId, dataReferenciaISO);
       toast.success(`${tipoMovimentacao} registrado com sucesso!`);
       handleClose();
       onSuccess();

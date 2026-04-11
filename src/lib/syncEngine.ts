@@ -640,7 +640,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
   } else {
     const { error: insErr } = await supabase
       .from("custodia")
-      .insert(custodiaData);
+      .insert({ id: crypto.randomUUID(), ...custodiaData });
     if (insErr) console.error("syncCustodia: erro ao inserir", insErr);
   }
 
