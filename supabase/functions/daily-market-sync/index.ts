@@ -583,60 +583,6 @@ Deno.serve(async (req) => {
       console.error("IPCA error:", e);
     }
 
-    // ── 8. Calendário Dias Úteis ─────────────────────────────────────
-    try {
-      // Get max date in calendar
-      const { data: maxCal } = await supabase
-        .from("calendario_dias_uteis")
-        .select("data")
-        .order("data", { ascending: false })
-        .limit(1)
-        .single();
-
-      const today = new Date();
-      const endYear = today.getFullYear() + 1;
-      const endDate = new Date(endYear, 11, 31);
-
-      const startCal = maxCal
-        ? addDays(new Date(maxCal.data + "T12:00:00"), 1)
-        : new Date(2024, 0, 1);
-
-      if (startCal <= endDate) {
-        // Collect holidays for all relevant years
-        const allHolidays = new Set<string>();
-        for (let y = startCal.getFullYear(); y <= endYear; y++) {
-          getBrazilianHolidays(y).forEach((h) => allHolidays.add(h));
-        }
-
-        const rows: { data: string; dia_util: boolean }[] = [];
-        const cursor = new Date(startCal);
-        while (cursor <= endDate) {
-          const iso = toISO(cursor);
-          const dow = cursor.getDay(); // 0=Sun, 6=Sat
-          const isWeekday = dow >= 1 && dow <= 5;
-          const isHoliday = allHolidays.has(iso);
-          rows.push({ data: iso, dia_util: isWeekday && !isHoliday });
-          cursor.setDate(cursor.getDate() + 1);
-        }
-
-        const batchSize = 500;
-        let inserted = 0;
-        for (let i = 0; i < rows.length; i += batchSize) {
-          const batch = rows.slice(i, i + batchSize);
-          const { error } = await supabase
-            .from("calendario_dias_uteis")
-            .upsert(batch, { onConflict: "data" });
-          if (error) throw new Error(`Calendar insert: ${error.message}`);
-          inserted += batch.length;
-        }
-        results.calendario = `Upserted ${inserted} calendar records through ${endYear}`;
-      } else {
-        results.calendario = "Calendar already up to date";
-      }
-    } catch (e) {
-      results.calendario = `Error: ${e instanceof Error ? e.message : String(e)}`;
-      console.error("Calendar error:", e);
-    }
 
     return new Response(JSON.stringify({ success: true, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
