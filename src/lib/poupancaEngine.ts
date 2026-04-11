@@ -117,21 +117,6 @@ function getFallbackRatesOnDate(
  * Calcula a evolução diária da poupança, retornando DailyRow[] compatível
  * com o engine de renda fixa para integração com a carteira.
  */
-/**
- * Dado uma data de resgate e o dia dominante, retorna a data do último
- * aniversário dominante que já ocorreu (no mês corrente ou anterior).
- */
-function findLastDominantAniversario(resgateDate: string, dominantDia: number): string {
-  const d = new Date(resgateDate + "T00:00:00");
-  const y = d.getFullYear();
-  const m = d.getMonth() + 1; // 1-based
-  const teorica = getDataTeóricaAniversario(y, m, dominantDia);
-  if (teorica <= resgateDate) return teorica;
-  // Go to previous month
-  const pm = m === 1 ? 12 : m - 1;
-  const py = m === 1 ? y - 1 : y;
-  return getDataTeóricaAniversario(py, pm, dominantDia);
-}
 
 export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
   const { dataInicio, dataCalculo, calendario, movimentacoes, lotes, selicRecords, trRecords, poupancaRendimentoRecords, dataResgateTotal } = input;
@@ -195,15 +180,7 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
       };
     });
 
-  // Aniversário dominante: o dia da primeira aplicação da posição.
-  // Nunca muda, independentemente de resgates ou novas aplicações.
-  const sortedByDate = [...loteStates].sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao));
-  const dominantDia = sortedByDate.length > 0 ? sortedByDate[0].diaAniversario : 1;
-  const dominantOffset = sortedByDate.length > 0 ? sortedByDate[0].offsetPrimeiroCiclo : false;
-  const dominantDataAplicacao = sortedByDate.length > 0 ? sortedByDate[0].dataAplicacao : dataInicio;
-
-  // NÃO sobrescrevemos os aniversários aqui — cada lote mantém seu dia original
-  // até que um resgate dispare a consolidação (efeito prospectivo).
+  // Cada lote mantém seu aniversário original — sem consolidação pós-resgate.
 
   const rows: DailyRow[] = [];
   let rentAcum2 = 0;
