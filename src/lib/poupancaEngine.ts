@@ -270,6 +270,8 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
       let restante = mov.resgates;
       // Sort active lotes by application date (FIFO)
       const sortedActive = [...activeLotes].sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao));
+      let frontierLote: LoteState | null = null;
+
       for (const lote of sortedActive) {
         if (restante <= 0.01) break;
         if (lote.valorAtual <= 0.01) continue;
@@ -286,10 +288,28 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
           lote.rendimentoAcumulado -= lote.rendimentoAcumulado * proporcao;
           lote.valorAtual -= restante;
           restante = 0;
+          frontierLote = lote; // partially consumed
         }
       }
 
-      // Cada lote remanescente mantém seu aniversário original — sem consolidação
+      // Regra pós-resgate: o saldo remanescente do lote parcialmente consumido
+      // (lote-fronteira) é absorvido pelo próximo lote ativo na ordem FIFO.
+      // Isso elimina aniversários órfãos e alinha o comportamento ao Gorila.
+      if (frontierLote) {
+        const nextLote = sortedActive.find(
+          l => l.status === "ativo" && l.id !== frontierLote!.id && l.valorAtual > 0.01
+        );
+        if (nextLote) {
+          nextLote.valorPrincipal += frontierLote.valorPrincipal;
+          nextLote.valorAtual += frontierLote.valorAtual;
+          nextLote.rendimentoAcumulado += frontierLote.rendimentoAcumulado;
+          frontierLote.valorAtual = 0;
+          frontierLote.valorPrincipal = 0;
+          frontierLote.rendimentoAcumulado = 0;
+          frontierLote.status = "resgatado";
+        }
+        // Se não há próximo lote, o frontier permanece como está (único lote restante)
+      }
     }
 
     // Calculate totals
