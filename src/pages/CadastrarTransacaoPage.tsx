@@ -945,7 +945,9 @@ export default function CadastrarTransacaoPage() {
         }
 
         const noFields = isPoupanca || (isMoedas && isMoeda);
+        const movId = crypto.randomUUID();
         const { error } = await supabase.from("movimentacoes").insert({
+          id: movId,
           categoria_id: categoriaId,
           tipo_movimentacao: tipoFinal,
           data,
@@ -973,24 +975,15 @@ export default function CadastrarTransacaoPage() {
 
         if (error) throw error;
 
-        const { data: inserted } = await supabase
-          .from("movimentacoes")
-          .select("id")
-          .eq("codigo_custodia", nomeAtivo ? codigoCustodia : -1)
-          .eq("user_id", user!.id)
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        const insertedId = inserted?.[0]?.id || null;
-
-        await fullSyncAfterMovimentacao(insertedId, categoriaId, user!.id, dataReferenciaISO);
+        await fullSyncAfterMovimentacao(movId, categoriaId, user!.id, dataReferenciaISO);
         applyDataReferencia();
 
         toast.success("Transação cadastrada com sucesso!");
         resetForm();
       }
     } catch (err: any) {
-      toast.error(isEditing ? "Erro ao atualizar transação." : "Erro ao cadastrar transação.");
+      const msg = err?.message || (isEditing ? "Erro ao atualizar transação." : "Erro ao cadastrar transação.");
+      toast.error(msg);
       console.error(err);
     } finally {
       setSubmitting(false);
