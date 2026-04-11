@@ -312,7 +312,21 @@ async function syncResgateNoVencimento(
 
 // ── Poupança Lotes Sync ──
 
-/** Sync poupanca_lotes based on movimentacoes for a given codigo_custodia */
+/**
+ * Sync poupanca_lotes based on movimentacoes for a given codigo_custodia.
+ *
+ * IMPORTANTE: Esta função persiste lotes no banco para referência, mas
+ * NÃO é usada pelos cálculos de rendimento. Todas as páginas de cálculo
+ * usam buildPoupancaLotesFromMovs() + calcularPoupancaDiario(), que
+ * fazem replay completo da posição (criando lotes apenas de aplicações e
+ * aplicando resgates via FIFO cronologicamente com valor econômico real,
+ * incluindo rendimentos de aniversário).
+ *
+ * O FIFO aqui é simplificado (sobre valor nominal) porque serve apenas
+ * para persistir o estado dos lotes no banco. Os lotes persistidos
+ * preservam data_aplicacao e dia_aniversario originais de cada lote
+ * remanescente — sem consolidação.
+ */
 async function syncPoupancaLotes(codigoCustodia: number, userId: string, custodiaId?: string) {
   // Fetch all movimentacoes for this poupança
   const { data: allMovs } = await supabase
@@ -320,7 +334,8 @@ async function syncPoupancaLotes(codigoCustodia: number, userId: string, custodi
     .select("*")
     .eq("codigo_custodia", codigoCustodia)
     .eq("user_id", userId)
-    .order("data", { ascending: true });
+    .order("data", { ascending: true })
+    .order("created_at", { ascending: true });
 
   if (!allMovs) return;
 
@@ -336,14 +351,14 @@ async function syncPoupancaLotes(codigoCustodia: number, userId: string, custodi
     cusId = cust?.id;
   }
 
-  // Delete existing lotes and recreate from movimentacoes
+  // Delete existing lotes and recreate from movimentacoes (full replay)
   await supabase
     .from("poupanca_lotes")
     .delete()
     .eq("codigo_custodia", codigoCustodia)
     .eq("user_id", userId);
 
-  // Build lotes from applications
+  // Build lotes from applications — replay cronológico
   interface TempLote {
     data_aplicacao: string;
     dia_aniversario: number;
@@ -363,7 +378,7 @@ async function syncPoupancaLotes(codigoCustodia: number, userId: string, custodi
         valor_atual: m.valor,
       });
     } else if (["Resgate", "Resgate Total"].includes(m.tipo_movimentacao)) {
-      // FIFO consumption
+      // FIFO consumption — cada lote remanescente mantém seus dados originais
       let restante = m.valor;
       for (const lote of lotes) {
         if (restante <= 0) break;
@@ -383,7 +398,7 @@ async function syncPoupancaLotes(codigoCustodia: number, userId: string, custodi
     }
   }
 
-  // Insert active lotes
+  // Insert active lotes — cada um com seu aniversário original
   const activeLotes = lotes.filter(l => l.valor_atual > 0.01);
   if (activeLotes.length === 0) return;
 
