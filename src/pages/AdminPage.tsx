@@ -303,6 +303,7 @@ export default function AdminPage() {
       vencimento: row["Vencimento"] ?? "",
       pagamento: normalizeStr(row["Pagamento"] ?? ""),
       precoEmissao: row["Preço de Emissão"] ?? row["Preco de Emissao"] ?? row["Preço de Emissao"] ?? "",
+      nomeAtivoManual: normalizeStr(row["Nome do Ativo"] ?? ""),
       observacoes: normalizeStr(row["Observações"] ?? row["Observacoes"] ?? ""),
     }));
 
