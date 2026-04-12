@@ -40,6 +40,7 @@ interface RawRow {
   vencimento: string;
   pagamento: string;
   precoEmissao: string;
+  nomeAtivoManual: string;
   observacoes: string;
 }
 
@@ -154,39 +155,39 @@ function downloadTemplate() {
     "Categoria", "Tipo de Movimentação", "Produto", "Data da Transação",
     "Instituição / Corretora / Banco", "Emissor", "Modalidade", "Indexador",
     "Taxa", "Valor", "Vencimento", "Pagamento", "Preço de Emissão",
-    "Observações",
+    "Nome do Ativo", "Observações",
   ];
 
   const examples = [
     [
       "Renda Fixa", "Aplicação", "CDB", "02/01/2024",
       "XP Investimentos", "Banco XP", "Pós Fixado", "CDI",
-      "100", "10000", "02/01/2026", "No Vencimento", "1000", "",
+      "100", "10000", "02/01/2026", "No Vencimento", "1000", "", "",
     ],
     [
       "Renda Fixa", "Aplicação", "Poupança", "15/03/2024",
       "Banco do Brasil", "", "", "",
-      "", "5000", "", "", "", "",
+      "", "5000", "", "", "", "", "",
     ],
     [
       "Moedas", "Aplicação", "Dólar", "10/04/2024",
       "XP Investimentos", "", "", "",
-      "", "2500", "", "", "", "",
+      "", "2500", "", "", "", "", "",
     ],
     [
       "Moedas", "Aplicação", "Euro", "10/04/2024",
       "XP Investimentos", "", "", "",
-      "", "3000", "", "", "", "",
+      "", "3000", "", "", "", "", "",
     ],
     [
       "Renda Fixa", "Resgate", "CDB", "15/06/2024",
       "", "", "", "",
-      "", "5000", "", "", "", "Resgate parcial do CDB Banco XP",
+      "", "5000", "", "", "", "CDB Banco XP Pós Fixado 100% do CDI - 02/01/2026", "",
     ],
     [
       "Moedas", "Resgate Total", "Dólar", "20/08/2024",
       "", "", "", "",
-      "", "2500", "", "", "", "",
+      "", "2500", "", "", "", "Dólar XP Investimentos", "",
     ],
   ];
 
