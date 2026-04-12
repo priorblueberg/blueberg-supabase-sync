@@ -41,7 +41,6 @@ function toISO(d: Date): string {
 
 function getBrazilianHolidays(year: number): Set<string> {
   const holidays = new Set<string>();
-  // Fixed holidays
   const fixed = [
     [1, 1], [4, 21], [5, 1], [9, 7], [10, 12],
     [11, 2], [11, 15], [11, 20], [12, 25],
@@ -49,15 +48,27 @@ function getBrazilianHolidays(year: number): Set<string> {
   for (const [m, d] of fixed) {
     holidays.add(`${year}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
   }
-  // Easter-dependent
   const easter = computeEaster(year);
-  // Carnival: Mon + Tue before Ash Wednesday (47 and 46 days before Easter)
-  holidays.add(toISO(addDays(easter, -48))); // Carnival Monday
-  holidays.add(toISO(addDays(easter, -47))); // Carnival Tuesday
-  holidays.add(toISO(addDays(easter, -2)));  // Good Friday
-  holidays.add(toISO(addDays(easter, 60)));  // Corpus Christi
+  holidays.add(toISO(addDays(easter, -48)));
+  holidays.add(toISO(addDays(easter, -47)));
+  holidays.add(toISO(addDays(easter, -2)));
+  holidays.add(toISO(addDays(easter, 60)));
   return holidays;
 }
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+/** Rewind a date to the last weekday (Mon-Fri), skipping weekends. */
+function lastWeekday(d: Date): Date {
+  const r = new Date(d);
+  while (r.getDay() === 0 || r.getDay() === 6) {
+    r.setDate(r.getDate() - 1);
+  }
+  return r;
+}
+
+const fmtBR = (d: Date) =>
+  `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 
 // ── Main handler ─────────────────────────────────────────────────────
 
@@ -75,7 +86,6 @@ Deno.serve(async (req) => {
 
     // ── 1. CDI ───────────────────────────────────────────────────────
     try {
-      // Get max date in table
       const { data: maxCdi } = await supabase
         .from("historico_cdi")
         .select("data")
@@ -87,43 +97,43 @@ Deno.serve(async (req) => {
         ? addDays(new Date(maxCdi.data + "T12:00:00"), 1)
         : new Date(2024, 0, 2);
 
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
+      const endDate = lastWeekday(addDays(new Date(), -1));
 
-      if (startDate <= yesterday) {
-        const fmt = (d: Date) =>
-          `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-
-        const bcbUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.4389/dados?formato=json&dataInicial=${fmt(startDate)}&dataFinal=${fmt(yesterday)}`;
+      if (startDate <= endDate) {
+        const bcbUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.4389/dados?formato=json&dataInicial=${fmtBR(startDate)}&dataFinal=${fmtBR(endDate)}`;
         console.log("Fetching CDI from BCB:", bcbUrl);
 
         const resp = await fetch(bcbUrl);
-        if (!resp.ok) throw new Error(`BCB API error ${resp.status}`);
-
-        const cdiData: { data: string; valor: string }[] = await resp.json();
-
-        if (cdiData.length > 0) {
-          const rows = cdiData.map((r) => {
-            const [dd, mm, yyyy] = r.data.split("/");
-            return {
-              data: `${yyyy}-${mm}-${dd}`,
-              taxa_anual: parseFloat(r.valor),
-            };
-          });
-
-          const batchSize = 500;
-          let inserted = 0;
-          for (let i = 0; i < rows.length; i += batchSize) {
-            const batch = rows.slice(i, i + batchSize);
-            const { error } = await supabase
-              .from("historico_cdi")
-              .upsert(batch, { onConflict: "data" });
-            if (error) throw new Error(`CDI insert: ${error.message}`);
-            inserted += batch.length;
-          }
-          results.cdi = `Upserted ${inserted} CDI records`;
+        if (resp.status === 404) {
+          results.cdi = "No new CDI data (404 — no data for period)";
+        } else if (!resp.ok) {
+          throw new Error(`BCB API error ${resp.status}`);
         } else {
-          results.cdi = "No new CDI data";
+          const cdiData: { data: string; valor: string }[] = await resp.json();
+
+          if (cdiData.length > 0) {
+            const rows = cdiData.map((r) => {
+              const [dd, mm, yyyy] = r.data.split("/");
+              return {
+                data: `${yyyy}-${mm}-${dd}`,
+                taxa_anual: parseFloat(r.valor),
+              };
+            });
+
+            const batchSize = 500;
+            let inserted = 0;
+            for (let i = 0; i < rows.length; i += batchSize) {
+              const batch = rows.slice(i, i + batchSize);
+              const { error } = await supabase
+                .from("historico_cdi")
+                .upsert(batch, { onConflict: "data" });
+              if (error) throw new Error(`CDI insert: ${error.message}`);
+              inserted += batch.length;
+            }
+            results.cdi = `Upserted ${inserted} CDI records`;
+          } else {
+            results.cdi = "No new CDI data";
+          }
         }
       } else {
         results.cdi = "CDI already up to date";
@@ -144,7 +154,7 @@ Deno.serve(async (req) => {
 
       const period1 = maxIbov
         ? Math.floor(new Date(maxIbov.data + "T12:00:00").getTime() / 1000)
-        : 1704153600; // 02/01/2024
+        : 1704153600;
 
       const now = Math.floor(Date.now() / 1000);
 
@@ -211,43 +221,43 @@ Deno.serve(async (req) => {
         ? addDays(new Date(maxSelic.data + "T12:00:00"), 1)
         : new Date(2024, 0, 2);
 
-      const yesterdaySelic = new Date();
-      yesterdaySelic.setDate(yesterdaySelic.getDate() - 1);
+      const endSelic = lastWeekday(addDays(new Date(), -1));
 
-      if (startSelic <= yesterdaySelic) {
-        const fmt = (d: Date) =>
-          `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-
-        const bcbSelicUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados?formato=json&dataInicial=${fmt(startSelic)}&dataFinal=${fmt(yesterdaySelic)}`;
+      if (startSelic <= endSelic) {
+        const bcbSelicUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados?formato=json&dataInicial=${fmtBR(startSelic)}&dataFinal=${fmtBR(endSelic)}`;
         console.log("Fetching Selic from BCB:", bcbSelicUrl);
 
         const selicResp = await fetch(bcbSelicUrl);
-        if (!selicResp.ok) throw new Error(`BCB Selic API error ${selicResp.status}`);
-
-        const selicData: { data: string; valor: string }[] = await selicResp.json();
-
-        if (selicData.length > 0) {
-          const selicRows = selicData.map((r) => {
-            const [dd, mm, yyyy] = r.data.split("/");
-            return {
-              data: `${yyyy}-${mm}-${dd}`,
-              taxa_anual: parseFloat(r.valor),
-            };
-          });
-
-          const batchSize = 500;
-          let inserted = 0;
-          for (let i = 0; i < selicRows.length; i += batchSize) {
-            const batch = selicRows.slice(i, i + batchSize);
-            const { error } = await supabase
-              .from("historico_selic")
-              .upsert(batch, { onConflict: "data" });
-            if (error) throw new Error(`Selic insert: ${error.message}`);
-            inserted += batch.length;
-          }
-          results.selic = `Upserted ${inserted} Selic records`;
+        if (selicResp.status === 404) {
+          results.selic = "No new Selic data (404 — no data for period)";
+        } else if (!selicResp.ok) {
+          throw new Error(`BCB Selic API error ${selicResp.status}`);
         } else {
-          results.selic = "No new Selic data";
+          const selicData: { data: string; valor: string }[] = await selicResp.json();
+
+          if (selicData.length > 0) {
+            const selicRows = selicData.map((r) => {
+              const [dd, mm, yyyy] = r.data.split("/");
+              return {
+                data: `${yyyy}-${mm}-${dd}`,
+                taxa_anual: parseFloat(r.valor),
+              };
+            });
+
+            const batchSize = 500;
+            let inserted = 0;
+            for (let i = 0; i < selicRows.length; i += batchSize) {
+              const batch = selicRows.slice(i, i + batchSize);
+              const { error } = await supabase
+                .from("historico_selic")
+                .upsert(batch, { onConflict: "data" });
+              if (error) throw new Error(`Selic insert: ${error.message}`);
+              inserted += batch.length;
+            }
+            results.selic = `Upserted ${inserted} Selic records`;
+          } else {
+            results.selic = "No new Selic data";
+          }
         }
       } else {
         results.selic = "Selic already up to date";
@@ -270,47 +280,46 @@ Deno.serve(async (req) => {
         ? addDays(new Date(maxTr.data + "T12:00:00"), 1)
         : new Date(2024, 0, 1);
 
-      const yesterdayTr = new Date();
-      yesterdayTr.setDate(yesterdayTr.getDate() - 1);
+      const endTr = lastWeekday(addDays(new Date(), -1));
 
-      if (startTr <= yesterdayTr) {
-        const fmt = (d: Date) =>
-          `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-
-        const bcbTrUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.226/dados?formato=json&dataInicial=${fmt(startTr)}&dataFinal=${fmt(yesterdayTr)}`;
+      if (startTr <= endTr) {
+        const bcbTrUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.226/dados?formato=json&dataInicial=${fmtBR(startTr)}&dataFinal=${fmtBR(endTr)}`;
         console.log("Fetching TR from BCB:", bcbTrUrl);
 
         const trResp = await fetch(bcbTrUrl);
-        if (!trResp.ok) throw new Error(`BCB TR API error ${trResp.status}`);
-
-        const trData: { data: string; valor: string }[] = await trResp.json();
-
-        if (trData.length > 0) {
-          // Deduplicate by date (keep last value)
-          const byDate = new Map<string, number>();
-          for (const r of trData) {
-            const [dd, mm, yyyy] = r.data.split("/");
-            byDate.set(`${yyyy}-${mm}-${dd}`, parseFloat(r.valor));
-          }
-
-          const trRows = Array.from(byDate.entries()).map(([data, taxa_mensal]) => ({
-            data,
-            taxa_mensal,
-          }));
-
-          const batchSize = 500;
-          let inserted = 0;
-          for (let i = 0; i < trRows.length; i += batchSize) {
-            const batch = trRows.slice(i, i + batchSize);
-            const { error } = await supabase
-              .from("historico_tr")
-              .upsert(batch, { onConflict: "data" });
-            if (error) throw new Error(`TR insert: ${error.message}`);
-            inserted += batch.length;
-          }
-          results.tr = `Upserted ${inserted} TR records`;
+        if (trResp.status === 404) {
+          results.tr = "No new TR data (404 — no data for period)";
+        } else if (!trResp.ok) {
+          throw new Error(`BCB TR API error ${trResp.status}`);
         } else {
-          results.tr = "No new TR data";
+          const trData: { data: string; valor: string }[] = await trResp.json();
+
+          if (trData.length > 0) {
+            const byDate = new Map<string, number>();
+            for (const r of trData) {
+              const [dd, mm, yyyy] = r.data.split("/");
+              byDate.set(`${yyyy}-${mm}-${dd}`, parseFloat(r.valor));
+            }
+
+            const trRows = Array.from(byDate.entries()).map(([data, taxa_mensal]) => ({
+              data,
+              taxa_mensal,
+            }));
+
+            const batchSize = 500;
+            let inserted = 0;
+            for (let i = 0; i < trRows.length; i += batchSize) {
+              const batch = trRows.slice(i, i + batchSize);
+              const { error } = await supabase
+                .from("historico_tr")
+                .upsert(batch, { onConflict: "data" });
+              if (error) throw new Error(`TR insert: ${error.message}`);
+              inserted += batch.length;
+            }
+            results.tr = `Upserted ${inserted} TR records`;
+          } else {
+            results.tr = "No new TR data";
+          }
         }
       } else {
         results.tr = "TR already up to date";
@@ -333,46 +342,46 @@ Deno.serve(async (req) => {
         ? addDays(new Date(maxPoup.data + "T12:00:00"), 1)
         : new Date(2024, 0, 1);
 
-      const yesterdayPoup = new Date();
-      yesterdayPoup.setDate(yesterdayPoup.getDate() - 1);
+      const endPoup = lastWeekday(addDays(new Date(), -1));
 
-      if (startPoup <= yesterdayPoup) {
-        const fmt = (d: Date) =>
-          `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-
-        const bcbPoupUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.195/dados?formato=json&dataInicial=${fmt(startPoup)}&dataFinal=${fmt(yesterdayPoup)}`;
+      if (startPoup <= endPoup) {
+        const bcbPoupUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.195/dados?formato=json&dataInicial=${fmtBR(startPoup)}&dataFinal=${fmtBR(endPoup)}`;
         console.log("Fetching Poupança rendimento from BCB:", bcbPoupUrl);
 
         const poupResp = await fetch(bcbPoupUrl);
-        if (!poupResp.ok) throw new Error(`BCB Poupança API error ${poupResp.status}`);
-
-        const poupData: { data: string; valor: string }[] = await poupResp.json();
-
-        if (poupData.length > 0) {
-          const byDate = new Map<string, number>();
-          for (const r of poupData) {
-            const [dd, mm, yyyy] = r.data.split("/");
-            byDate.set(`${yyyy}-${mm}-${dd}`, parseFloat(r.valor));
-          }
-
-          const poupRows = Array.from(byDate.entries()).map(([data, rendimento_mensal]) => ({
-            data,
-            rendimento_mensal,
-          }));
-
-          const batchSize = 500;
-          let inserted = 0;
-          for (let i = 0; i < poupRows.length; i += batchSize) {
-            const batch = poupRows.slice(i, i + batchSize);
-            const { error } = await supabase
-              .from("historico_poupanca_rendimento")
-              .upsert(batch, { onConflict: "data" });
-            if (error) throw new Error(`Poupança insert: ${error.message}`);
-            inserted += batch.length;
-          }
-          results.poupanca_rendimento = `Upserted ${inserted} Poupança rendimento records`;
+        if (poupResp.status === 404) {
+          results.poupanca_rendimento = "No new Poupança data (404 — no data for period)";
+        } else if (!poupResp.ok) {
+          throw new Error(`BCB Poupança API error ${poupResp.status}`);
         } else {
-          results.poupanca_rendimento = "No new Poupança rendimento data";
+          const poupData: { data: string; valor: string }[] = await poupResp.json();
+
+          if (poupData.length > 0) {
+            const byDate = new Map<string, number>();
+            for (const r of poupData) {
+              const [dd, mm, yyyy] = r.data.split("/");
+              byDate.set(`${yyyy}-${mm}-${dd}`, parseFloat(r.valor));
+            }
+
+            const poupRows = Array.from(byDate.entries()).map(([data, rendimento_mensal]) => ({
+              data,
+              rendimento_mensal,
+            }));
+
+            const batchSize = 500;
+            let inserted = 0;
+            for (let i = 0; i < poupRows.length; i += batchSize) {
+              const batch = poupRows.slice(i, i + batchSize);
+              const { error } = await supabase
+                .from("historico_poupanca_rendimento")
+                .upsert(batch, { onConflict: "data" });
+              if (error) throw new Error(`Poupança insert: ${error.message}`);
+              inserted += batch.length;
+            }
+            results.poupanca_rendimento = `Upserted ${inserted} Poupança rendimento records`;
+          } else {
+            results.poupanca_rendimento = "No new Poupança rendimento data";
+          }
         }
       } else {
         results.poupanca_rendimento = "Poupança rendimento already up to date";
@@ -412,13 +421,10 @@ Deno.serve(async (req) => {
         const ptaxData = ptaxJson.value || [];
 
         if (ptaxData.length > 0) {
-          // Group by date, keep last entry per day (closing)
           const byDate = new Map<string, number>();
           for (const r of ptaxData) {
-            const dateStr = r.dataHoraCotacao.substring(0, 10); // "yyyy-MM-dd" from ISO
-            // BCB returns "yyyy-MM-dd HH:mm:ss.SSS" format
-            const isoDate = dateStr;
-            byDate.set(isoDate, r.cotacaoVenda);
+            const dateStr = r.dataHoraCotacao.substring(0, 10);
+            byDate.set(dateStr, r.cotacaoVenda);
           }
 
           const dolarRows = Array.from(byDate.entries()).map(([data, cotacao_venda]) => ({
@@ -520,60 +526,58 @@ Deno.serve(async (req) => {
         .limit(1)
         .single();
 
-      // SGS 433 returns monthly data; start from last + 1 month or 2020-01
       const startIpca = maxIpca
-        ? addDays(new Date(maxIpca.data_referencia + "T12:00:00"), 32) // next month
+        ? addDays(new Date(maxIpca.data_referencia + "T12:00:00"), 32)
         : new Date(2020, 0, 1);
 
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
 
       if (startIpca <= yesterday) {
-        const fmt = (d: Date) =>
-          `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-
-        const bcbIpcaUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados?formato=json&dataInicial=${fmt(startIpca)}&dataFinal=${fmt(yesterday)}`;
+        const bcbIpcaUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados?formato=json&dataInicial=${fmtBR(startIpca)}&dataFinal=${fmtBR(yesterday)}`;
         console.log("Fetching IPCA from BCB SGS 433:", bcbIpcaUrl);
 
         const ipcaResp = await fetch(bcbIpcaUrl);
-        if (!ipcaResp.ok) throw new Error(`BCB IPCA API error ${ipcaResp.status}`);
-
-        const ipcaData: { data: string; valor: string }[] = await ipcaResp.json();
-
-        if (ipcaData.length > 0) {
-          const ipcaRows = ipcaData.map((r) => {
-            const [dd, mm, yyyy] = r.data.split("/");
-            const dataRef = `${yyyy}-${mm}-${dd}`;
-            // competencia = first day of the month
-            const competencia = `${yyyy}-${mm}-01`;
-            const variacao = parseFloat(r.valor);
-            // data_publicacao ≈ competencia + 1 month + 10 days (IBGE publication)
-            const compDate = new Date(parseInt(yyyy), parseInt(mm) - 1, 1);
-            compDate.setMonth(compDate.getMonth() + 1);
-            compDate.setDate(compDate.getDate() + 10);
-            const dataPub = `${compDate.getFullYear()}-${String(compDate.getMonth() + 1).padStart(2, "0")}-${String(compDate.getDate()).padStart(2, "0")}`;
-            return {
-              data_referencia: dataRef,
-              competencia,
-              variacao_mensal: variacao,
-              fator_mensal: 1 + variacao / 100,
-              data_publicacao: dataPub,
-            };
-          });
-
-          const batchSize = 500;
-          let inserted = 0;
-          for (let i = 0; i < ipcaRows.length; i += batchSize) {
-            const batch = ipcaRows.slice(i, i + batchSize);
-            const { error } = await supabase
-              .from("historico_ipca")
-              .upsert(batch, { onConflict: "data_referencia" });
-            if (error) throw new Error(`IPCA insert: ${error.message}`);
-            inserted += batch.length;
-          }
-          results.ipca = `Upserted ${inserted} IPCA records`;
+        if (ipcaResp.status === 404) {
+          results.ipca = "No new IPCA data (404 — no data for period)";
+        } else if (!ipcaResp.ok) {
+          throw new Error(`BCB IPCA API error ${ipcaResp.status}`);
         } else {
-          results.ipca = "No new IPCA data";
+          const ipcaData: { data: string; valor: string }[] = await ipcaResp.json();
+
+          if (ipcaData.length > 0) {
+            const ipcaRows = ipcaData.map((r) => {
+              const [dd, mm, yyyy] = r.data.split("/");
+              const dataRef = `${yyyy}-${mm}-${dd}`;
+              const competencia = `${yyyy}-${mm}-01`;
+              const variacao = parseFloat(r.valor);
+              const compDate = new Date(parseInt(yyyy), parseInt(mm) - 1, 1);
+              compDate.setMonth(compDate.getMonth() + 1);
+              compDate.setDate(compDate.getDate() + 10);
+              const dataPub = `${compDate.getFullYear()}-${String(compDate.getMonth() + 1).padStart(2, "0")}-${String(compDate.getDate()).padStart(2, "0")}`;
+              return {
+                data_referencia: dataRef,
+                competencia,
+                variacao_mensal: variacao,
+                fator_mensal: 1 + variacao / 100,
+                data_publicacao: dataPub,
+              };
+            });
+
+            const batchSize = 500;
+            let inserted = 0;
+            for (let i = 0; i < ipcaRows.length; i += batchSize) {
+              const batch = ipcaRows.slice(i, i + batchSize);
+              const { error } = await supabase
+                .from("historico_ipca")
+                .upsert(batch, { onConflict: "data_referencia" });
+              if (error) throw new Error(`IPCA insert: ${error.message}`);
+              inserted += batch.length;
+            }
+            results.ipca = `Upserted ${inserted} IPCA records`;
+          } else {
+            results.ipca = "No new IPCA data";
+          }
         }
       } else {
         results.ipca = "IPCA already up to date";
@@ -585,8 +589,6 @@ Deno.serve(async (req) => {
 
     // ── 7b. IPCA Projeções (Focus/BCB — Expectativas Mensais) ────────
     try {
-      // Fetch the most recent Focus projections for IPCA (monthly)
-      // The API returns multiple survey dates; we want only the latest Data per DataReferencia
       const focusUrl = `https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativaMercadoMensais?$top=100&$filter=Indicador%20eq%20'IPCA'&$orderby=Data%20desc,DataReferencia%20desc&$format=json&$select=Data,DataReferencia,Mediana`;
       console.log("Fetching IPCA projections from BCB Focus...");
 
@@ -597,10 +599,9 @@ Deno.serve(async (req) => {
       const focusData: { Data: string; DataReferencia: string; Mediana: number }[] = focusJson.value || [];
 
       if (focusData.length > 0) {
-        // Keep only the latest survey date (Data) per DataReferencia (MM/YYYY)
         const latestByRef = new Map<string, { mediana: number; dataFocus: string }>();
         for (const r of focusData) {
-          const ref = r.DataReferencia; // "MM/YYYY"
+          const ref = r.DataReferencia;
           const existing = latestByRef.get(ref);
           if (!existing || r.Data > existing.dataFocus) {
             latestByRef.set(ref, { mediana: r.Mediana, dataFocus: r.Data });
@@ -608,15 +609,12 @@ Deno.serve(async (req) => {
         }
 
         const projRows = Array.from(latestByRef.entries()).map(([ref, { mediana }]) => {
-          // Convert "MM/YYYY" → "YYYY-MM-01"
           const [mm, yyyy] = ref.split("/");
           const competencia = `${yyyy}-${mm}-01`;
-          const variacao_projetada = mediana;
-          const fator_projetado = 1 + mediana / 100;
           return {
             competencia,
-            variacao_projetada,
-            fator_projetado,
+            variacao_projetada: mediana,
+            fator_projetado: 1 + mediana / 100,
             fonte: "BCB Focus",
           };
         });
@@ -642,7 +640,6 @@ Deno.serve(async (req) => {
 
     // ── 8. Calendário Dias Úteis ─────────────────────────────────────
     try {
-      // Get max date in calendar
       const { data: maxCal } = await supabase
         .from("calendario_dias_uteis")
         .select("data")
@@ -659,7 +656,6 @@ Deno.serve(async (req) => {
         : new Date(2024, 0, 1);
 
       if (startCal <= endDate) {
-        // Collect holidays for all relevant years
         const allHolidays = new Set<string>();
         for (let y = startCal.getFullYear(); y <= endYear; y++) {
           getBrazilianHolidays(y).forEach((h) => allHolidays.add(h));
@@ -669,7 +665,7 @@ Deno.serve(async (req) => {
         const cursor = new Date(startCal);
         while (cursor <= endDate) {
           const iso = toISO(cursor);
-          const dow = cursor.getDay(); // 0=Sun, 6=Sat
+          const dow = cursor.getDay();
           const isWeekday = dow >= 1 && dow <= 5;
           const isHoliday = allHolidays.has(iso);
           rows.push({ data: iso, dia_util: isWeekday && !isHoliday });
