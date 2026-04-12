@@ -239,8 +239,12 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
       const serie195 = poupRendMap.get(dataInicioCiclo);
 
       let rendBruto: number | null = null;
+      let _debugSource = "none";
+      let _debugTaxa = 0;
       if (serie195 !== undefined) {
         rendBruto = lote.valorAtual * (serie195 / 100);
+        _debugSource = "serie195";
+        _debugTaxa = serie195;
       } else {
         const fallbackRates = getFallbackRatesOnDate(dataInicioCiclo, selicMap, trMap);
         if (fallbackRates) {
@@ -249,7 +253,14 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
             fallbackRates.selicAnual,
             fallbackRates.trMensal
           );
+          _debugSource = "fallback";
+          _debugTaxa = fallbackRates.selicAnual;
         }
+      }
+
+      // DEBUG temporário — remover após diagnóstico Bug0003
+      if (date >= "2024-12-01" && date <= "2024-12-05") {
+        console.log(`[POUP-DEBUG] date=${date} lote=${lote.id} diaAniv=${lote.diaAniversario} dataInicioCiclo=${dataInicioCiclo} base=${lote.valorAtual.toFixed(2)} source=${_debugSource} taxa=${_debugTaxa} rendBruto=${rendBruto?.toFixed(8) ?? "null"}`);
       }
 
       if (rendBruto === null) continue;
