@@ -583,6 +583,63 @@ Deno.serve(async (req) => {
       console.error("IPCA error:", e);
     }
 
+    // ── 7b. IPCA Projeções (Focus/BCB — Expectativas Mensais) ────────
+    try {
+      // Fetch the most recent Focus projections for IPCA (monthly)
+      // The API returns multiple survey dates; we want only the latest Data per DataReferencia
+      const focusUrl = `https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativaMercadoMensais?$top=100&$filter=Indicador%20eq%20'IPCA'&$orderby=Data%20desc,DataReferencia%20desc&$format=json&$select=Data,DataReferencia,Mediana`;
+      console.log("Fetching IPCA projections from BCB Focus...");
+
+      const focusResp = await fetch(focusUrl);
+      if (!focusResp.ok) throw new Error(`BCB Focus API error ${focusResp.status}`);
+
+      const focusJson = await focusResp.json();
+      const focusData: { Data: string; DataReferencia: string; Mediana: number }[] = focusJson.value || [];
+
+      if (focusData.length > 0) {
+        // Keep only the latest survey date (Data) per DataReferencia (MM/YYYY)
+        const latestByRef = new Map<string, { mediana: number; dataFocus: string }>();
+        for (const r of focusData) {
+          const ref = r.DataReferencia; // "MM/YYYY"
+          const existing = latestByRef.get(ref);
+          if (!existing || r.Data > existing.dataFocus) {
+            latestByRef.set(ref, { mediana: r.Mediana, dataFocus: r.Data });
+          }
+        }
+
+        const projRows = Array.from(latestByRef.entries()).map(([ref, { mediana }]) => {
+          // Convert "MM/YYYY" → "YYYY-MM-01"
+          const [mm, yyyy] = ref.split("/");
+          const competencia = `${yyyy}-${mm}-01`;
+          const variacao_projetada = mediana;
+          const fator_projetado = 1 + mediana / 100;
+          return {
+            competencia,
+            variacao_projetada,
+            fator_projetado,
+            fonte: "BCB Focus",
+          };
+        });
+
+        const batchSize = 500;
+        let inserted = 0;
+        for (let i = 0; i < projRows.length; i += batchSize) {
+          const batch = projRows.slice(i, i + batchSize);
+          const { error } = await supabase
+            .from("historico_ipca_projecao")
+            .upsert(batch, { onConflict: "competencia" });
+          if (error) throw new Error(`IPCA projeção insert: ${error.message}`);
+          inserted += batch.length;
+        }
+        results.ipca_projecao = `Upserted ${inserted} IPCA projection records`;
+      } else {
+        results.ipca_projecao = "No IPCA projection data from Focus";
+      }
+    } catch (e) {
+      results.ipca_projecao = `Error: ${e instanceof Error ? e.message : String(e)}`;
+      console.error("IPCA projeção error:", e);
+    }
+
     // ── 8. Calendário Dias Úteis ─────────────────────────────────────
     try {
       // Get max date in calendar
