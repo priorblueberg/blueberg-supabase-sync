@@ -514,6 +514,24 @@ export default function CarteiraInvestimentosPage() {
       });
   }, [consolidatedRows]);
 
+  // Detail rows for RentabilidadeDetailTable
+  const detailRows = useMemo(() => {
+    if (consolidatedRows.length === 0 || !dataInicio) return [];
+    const adaptedRows = consolidatedRows.map(r => ({
+      data: r.data,
+      diaUtil: r.diaUtil,
+      liquido: r.patrimonio,
+      aplicacoes: r.aplicacoes,
+      resgates: r.resgates,
+      jurosPago: 0,
+      saldoCotas: 1,
+      ganhoAcumulado: r.ganhoAcumuladoRS,
+      ganhoDiario: r.ganhoDiarioRS,
+      rentabilidadeDiaria: r.rentDiariaPct,
+    }));
+    return buildDetailRowsFromEngine(adaptedRows, cdiRecords, dataInicio);
+  }, [consolidatedRows, cdiRecords, dataInicio]);
+
   // Allocation data
   const allocationData = useMemo(() => {
     const total = rfPatrimonio + cambioPatrimonio;
@@ -716,6 +734,11 @@ export default function CarteiraInvestimentosPage() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Tabela de Rentabilidade */}
+          {detailRows.length > 0 && (
+            <RentabilidadeDetailTable rows={detailRows} tituloLabel="Rentabilidade" />
           )}
 
           {/* Posição Consolidada Geral */}
