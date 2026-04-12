@@ -37,7 +37,7 @@ const OnboardingPage = () => {
     } else {
       toast.success("Perfil criado com sucesso!");
       await refreshProfile();
-      navigate("/carteira/renda-fixa");
+      navigate("/carteira/investimentos");
     }
     setLoading(false);
   };
