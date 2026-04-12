@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 
 const tabs = [
+  { label: "Investimentos", url: "/carteira/investimentos" },
   { label: "Renda Fixa", url: "/carteira/renda-fixa" },
   { label: "Câmbio", url: "/carteira/cambio" },
 ];
