@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
 
 // Lazy-loaded heavy pages
+const CarteiraInvestimentosPage = lazy(() => import("@/pages/CarteiraInvestimentosPage"));
 const CarteiraRendaFixa = lazy(() => import("@/pages/CarteiraRendaFixaPage"));
 const CarteiraCambioPage = lazy(() => import("@/pages/CarteiraCambioPage"));
 const CalculadoraPage = lazy(() => import("@/pages/CalculadoraPage"));
@@ -77,7 +78,7 @@ const OnboardingRoute = () => {
       </div>
     );
   if (!user) return <Navigate to="/auth" replace />;
-  if (hasProfile) return <Navigate to="/carteira/renda-fixa" replace />;
+  if (hasProfile) return <Navigate to="/carteira/investimentos" replace />;
   return (
     <Suspense fallback={<LazyFallback />}>
       <OnboardingPage />
@@ -107,8 +108,9 @@ const App = () => (
               {/* Protected routes */}
               <Route element={<ProtectedRoute />}>
                 <Route element={<AppLayout />}>
-                  <Route path="/welcome" element={<Navigate to="/carteira/renda-fixa" replace />} />
-                  <Route path="/carteira" element={<Navigate to="/carteira/renda-fixa" replace />} />
+                  <Route path="/welcome" element={<Navigate to="/carteira/investimentos" replace />} />
+                  <Route path="/carteira" element={<Navigate to="/carteira/investimentos" replace />} />
+                  <Route path="/carteira/investimentos" element={<CarteiraInvestimentosPage />} />
                   <Route path="/carteira/renda-fixa" element={<CarteiraRendaFixa />} />
                   <Route path="/carteira/cambio" element={<CarteiraCambioPage />} />
                   <Route path="/carteira/renda-variavel" element={<CarteiraRendaVariavel />} />
