@@ -859,7 +859,7 @@ export default function AdminPage() {
                   {[
                     "Categoria", "Tipo de Movimentação", "Produto", "Data da Transação",
                     "Instituição / Corretora / Banco", "Emissor", "Modalidade", "Indexador",
-                    "Taxa", "Valor", "Vencimento", "Pagamento", "Preço de Emissão", "Observações",
+                    "Taxa", "Valor", "Vencimento", "Pagamento", "Preço de Emissão", "Nome do Ativo", "Observações",
                   ].map(c => (
                     <span key={c} className="bg-muted px-2 py-0.5 rounded">{c}</span>
                   ))}
