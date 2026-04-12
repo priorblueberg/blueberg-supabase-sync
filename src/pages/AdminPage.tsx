@@ -208,6 +208,7 @@ function downloadTemplate() {
     ["Vencimento", "Data de vencimento dd/mm/aaaa — somente para Renda Fixa padrão"],
     ["Pagamento", "Mensal, Bimestral, Trimestral, Quadrimestral, Semestral, Anual ou No Vencimento — somente RF padrão"],
     ["Preço de Emissão", "PU na data da emissão — somente para Renda Fixa padrão"],
+    ["Nome do Ativo", "Opcional. Para Resgate/Resgate Total, identifica a posição na custódia. Se preenchido, tem prioridade sobre busca por Produto+Instituição."],
     ["Observações", "Campo livre (opcional)"],
     [""],
     ["REGRAS POR PRODUTO"],
@@ -219,12 +220,12 @@ function downloadTemplate() {
     ["REGRAS POR TIPO DE MOVIMENTAÇÃO"],
     [""],
     ["Aplicação", "O sistema decide automaticamente se é Aplicação Inicial (primeiro aporte) ou Aplicação (aporte adicional)."],
-    ["Resgate", "Para resgatar parcialmente. Preencha o nome do ativo existente via Produto + Instituição + campos que identifiquem o ativo."],
+    ["Resgate", "Para resgatar parcialmente. Preencha 'Nome do Ativo' para localizar a posição exata, ou use Produto + Instituição como fallback."],
     ["Resgate Total", "Para fechar a posição inteira. Mesma lógica do Resgate."],
     [""],
     ["OBSERVAÇÕES GERAIS"],
     ["- Nomes de Instituição e Emissor devem corresponder aos cadastrados no sistema"],
-    ["- Para Resgates/Resgates Totais, o sistema localiza o ativo existente pelo nome_ativo gerado"],
+    ["- Para Resgates, use 'Nome do Ativo' (coluna N) para identificar a posição com precisão — especialmente quando houver mais de um ativo do mesmo produto"],
     ["- O sistema valida dia útil, vencimento > data, e demais regras de negócio"],
     ["- Linhas com erros são ignoradas; apenas linhas válidas são processadas"],
   ];
@@ -683,13 +684,21 @@ export default function AdminPage() {
 
   /** Process a Resgate or Resgate Total row */
   const processResgate = async (row: ValidatedRow, userId: string) => {
-    // Find matching custodia by building expected nome_ativo or searching
-    // For resgates, we need to find the existing position
-    // Strategy: if nomeAtivo is populated, use it. Otherwise search by product + instituição.
-
     let custodia: any = null;
 
-    if (row.nomeAtivo) {
+    // Priority 1: Nome do Ativo manual (from Excel column)
+    if (row.nomeAtivoManual) {
+      const { data } = await supabase
+        .from("custodia")
+        .select("*")
+        .eq("nome", row.nomeAtivoManual)
+        .eq("user_id", userId)
+        .maybeSingle();
+      custodia = data;
+    }
+
+    // Priority 2: nome_ativo generated from validation (only if manual not provided)
+    if (!custodia && !row.nomeAtivoManual && row.nomeAtivo) {
       const { data } = await supabase
         .from("custodia")
         .select("*")
@@ -717,7 +726,7 @@ export default function AdminPage() {
     }
 
     if (!custodia) {
-      throw new Error(`Posição ativa não encontrada para "${row.nomeAtivo || row.produto}". Verifique se o ativo existe na custódia.`);
+      throw new Error(`Posição ativa não encontrada para "${row.nomeAtivoManual || row.nomeAtivo || row.produto}". Verifique se o ativo existe na custódia.`);
     }
 
     // For moedas resgate, lookup cotação
