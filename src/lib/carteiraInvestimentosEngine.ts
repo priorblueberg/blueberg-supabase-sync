@@ -69,7 +69,7 @@ export function calcularCarteiraInvestimentos(input: ConsolidatedInput): Consoli
   const result: ConsolidatedDailyRow[] = [];
   let ganhoAcumulado = 0;
   let rentAcumuladaFactor = 1;
-  let prevPatrimonio = 0;
+  
 
   for (const [data, agg] of sorted) {
     // Base TWR = patrimônio do dia - ganho do dia (espelha RF: prevLiquido + aplicacoes)
@@ -90,7 +90,7 @@ export function calcularCarteiraInvestimentos(input: ConsolidatedInput): Consoli
       rentAcumuladaPct: rentAcumuladaFactor - 1,
     });
 
-    prevPatrimonio = agg.patrimonio;
+    
   }
 
   return result;
