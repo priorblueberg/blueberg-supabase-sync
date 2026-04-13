@@ -2,11 +2,14 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useDataReferencia } from "@/contexts/DataReferenciaContext";
+import { resetAllAppCaches } from "@/lib/resetCaches";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export default function ConfiguracoesPage() {
   const { user } = useAuth();
+  const { applyDataReferencia } = useDataReferencia();
   const [deleting, setDeleting] = useState(false);
 
   const handleReset = async () => {
@@ -20,23 +23,27 @@ export default function ConfiguracoesPage() {
 
     setDeleting(true);
     try {
-      const { error: custErr } = await supabase
-        .from("custodia")
-        .delete()
-        .gte("codigo_custodia", 0);
-      if (custErr) throw custErr;
-
       const { error: movErr } = await supabase
         .from("movimentacoes")
         .delete()
-        .gte("created_at", "1970-01-01");
+        .eq("user_id", user.id);
       if (movErr) throw movErr;
+
+      const { error: custErr } = await supabase
+        .from("custodia")
+        .delete()
+        .eq("user_id", user.id);
+      if (custErr) throw custErr;
 
       const { error: cartErr } = await supabase
         .from("controle_de_carteiras")
         .delete()
-        .gte("created_at", "1970-01-01");
+        .eq("user_id", user.id);
       if (cartErr) throw cartErr;
+
+      // Invalidate every in-memory cache and force global recalculation
+      resetAllAppCaches();
+      applyDataReferencia();
 
       toast.success("Todos os registros foram redefinidos com sucesso.");
     } catch (err: any) {
@@ -56,7 +63,6 @@ export default function ConfiguracoesPage() {
         </p>
       </div>
 
-      {/* Redefinir Movimentações */}
       <Card className="max-w-lg">
         <CardHeader>
           <CardTitle className="text-sm">Redefinir Movimentações</CardTitle>

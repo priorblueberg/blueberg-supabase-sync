@@ -72,6 +72,9 @@ interface ProductAnalysis {
 
 // Module-level cache
 let _cambioCachedVersion: number | null = null;
+
+import { registerCacheReset } from "@/lib/resetCaches";
+registerCacheReset(() => { _cambioCachedVersion = null; _cambioCached = null; });
 let _cambioCached: {
   carteiraInfo: CarteiraInfo | null;
   carteiraRows: CarteiraRFRow[];

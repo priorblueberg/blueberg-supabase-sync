@@ -92,6 +92,9 @@ let _invCached: {
   cambioPatrimonio: number;
 } | null = null;
 
+import { registerCacheReset } from "@/lib/resetCaches";
+registerCacheReset(() => { _invCachedVersion = null; _invCached = null; });
+
 export default function CarteiraInvestimentosPage() {
   const { user } = useAuth();
   const { appliedVersion, dataReferenciaISO } = useDataReferencia();

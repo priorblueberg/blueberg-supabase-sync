@@ -108,6 +108,9 @@ function getDateMinus(dateStr: string, days: number): string {
 let _cartRFCachedVersion: number | null = null;
 let _cartRFCached: { carteiraInfo: CarteiraInfo | null; carteiraRows: CarteiraRFRow[]; allProductRows: DailyRow[][]; cdiRecords: CdiRecord[]; ibovespaData: { data: string; pontos: number }[]; productList: any[]; allCustodiaForCategoria: any[] } | null = null;
 
+import { registerCacheReset } from "@/lib/resetCaches";
+registerCacheReset(() => { _cartRFCachedVersion = null; _cartRFCached = null; });
+
 export default function CarteiraRendaFixaPage() {
   const { user } = useAuth();
   const { appliedVersion, dataReferenciaISO } = useDataReferencia();
