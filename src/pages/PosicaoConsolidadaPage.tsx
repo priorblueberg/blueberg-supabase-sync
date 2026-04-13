@@ -417,21 +417,80 @@ export default function PosicaoConsolidadaPage() {
 
       // Compute TWR for total rentabilidade using carteira engine
       const tCarteira = performance.now();
-      if (allProductRows.length > 0) {
-        const carteiraRows = calcularCarteiraRendaFixa({
-          productRows: allProductRows,
-          calendario,
-          dataInicio: minDate,
+
+      // Also compute per-category TWR for carteiras summary
+      const rfOnlyRows = allProductRows.slice(0, rfProducts.length + poupancaProducts.length);
+      // cambio rows were not added to allProductRows — compute separately
+      const cambioAdaptedRows: DailyRow[][] = [];
+      for (const product of cambioProducts) {
+        const allMovsForProduct = movByCodigo.get(product.codigo_custodia) || [];
+        const isEuro = product.produto_nome.toLowerCase().includes("euro");
+        const cotacaoRecords = isEuro ? euroRecords : dolarRecords;
+        const cambioRows = calcularCambioDiario({
+          dataInicio: product.data_inicio,
           dataCalculo: dataReferenciaISO,
+          cotacaoInicial: product.preco_unitario || 1,
+          calendario,
+          movimentacoes: allMovsForProduct,
+          historicoCotacao: cotacaoRecords,
+          dataResgateTotal: product.resgate_total,
         });
-        const lastCarteira = carteiraRows.length > 0 ? carteiraRows[carteiraRows.length - 1] : null;
-        const rentVal = lastCarteira ? lastCarteira.rentAcumuladaPct * 100 : 0;
-        setCarteiraRentabilidade(rentVal);
-        _cachedRentabilidade = rentVal;
+        cambioAdaptedRows.push(cambioRows.map(r => ({
+          data: r.data, diaUtil: r.diaUtil, liquido: r.valorBRL, liquido2: r.valorBRL,
+          aplicacoes: r.aplicacoesBRL, resgates: r.resgatesBRL, saldoCotas: r.quantidadeMoeda,
+          ganhoAcumulado: r.rentAcumuladaBRL, ganhoDiario: r.ganhoDiarioBRL,
+          rentabilidadeDiaria: r.rentDiariaPct, jurosPago: 0,
+          rentabilidadeAcumuladaPct: r.rentAcumuladaPct, rentAcumulada2: r.rentAcumuladaPct,
+        } as unknown as DailyRow)));
+      }
+
+      // RF carteira
+      let rfCartValor = 0, rfCartGanho = 0, rfCartRent = 0;
+      if (rfOnlyRows.length > 0) {
+        const rfCartRows = calcularCarteiraRendaFixa({ productRows: rfOnlyRows, calendario, dataInicio: minDate, dataCalculo: dataReferenciaISO });
+        const lastRF = rfCartRows.length > 0 ? rfCartRows[rfCartRows.length - 1] : null;
+        if (lastRF) { rfCartValor = lastRF.liquido; rfCartGanho = lastRF.rentAcumuladaRS; rfCartRent = lastRF.rentAcumuladaPct * 100; }
+      }
+
+      // Câmbio carteira
+      let cambioCartValor = 0, cambioCartGanho = 0, cambioCartRent = 0;
+      if (cambioAdaptedRows.length > 0) {
+        const cambioMinDate = cambioProducts.reduce((min, p) => p.data_inicio < min ? p.data_inicio : min, cambioProducts[0].data_inicio);
+        const cambioCartRows = calcularCarteiraRendaFixa({ productRows: cambioAdaptedRows, calendario, dataInicio: cambioMinDate, dataCalculo: dataReferenciaISO });
+        const lastCambio = cambioCartRows.length > 0 ? cambioCartRows[cambioCartRows.length - 1] : null;
+        if (lastCambio) { cambioCartValor = lastCambio.liquido; cambioCartGanho = lastCambio.rentAcumuladaRS; cambioCartRent = lastCambio.rentAcumuladaPct * 100; }
+      }
+
+      // Investimentos (total) carteira
+      const allForInv = [...rfOnlyRows, ...cambioAdaptedRows];
+      let invCartValor = 0, invCartGanho = 0, invCartRent = 0;
+      if (allForInv.length > 0) {
+        const invCartRows = calcularCarteiraRendaFixa({ productRows: allForInv, calendario, dataInicio: minDate, dataCalculo: dataReferenciaISO });
+        const lastInv = invCartRows.length > 0 ? invCartRows[invCartRows.length - 1] : null;
+        if (lastInv) { invCartValor = lastInv.liquido; invCartGanho = lastInv.rentAcumuladaRS; invCartRent = lastInv.rentAcumuladaPct * 100; }
+        setCarteiraRentabilidade(invCartRent);
+        _cachedRentabilidade = invCartRent;
       } else {
         setCarteiraRentabilidade(0);
         _cachedRentabilidade = 0;
       }
+
+      // Build carteiras summary
+      const computeCartStatus = (cartName: string) => {
+        const cart = (carteirasData || []).find((c: any) => c.nome_carteira === cartName);
+        if (!cart) return "Ativa";
+        if (cart.data_inicio && dataReferenciaISO < cart.data_inicio) return "Não Iniciada";
+        if (cart.resgate_total && dataReferenciaISO >= cart.resgate_total) return "Encerrada";
+        return "Ativa";
+      };
+
+      const summaryRows: CarteiraSummaryRow[] = [];
+      summaryRows.push({ status: computeCartStatus("Investimentos"), carteira: "Investimentos", valorAtualizado: invCartValor, ganhoFinanceiro: invCartGanho, rentabilidade: invCartRent });
+      if (rfOnlyRows.length > 0) summaryRows.push({ status: computeCartStatus("Renda Fixa"), carteira: "Renda Fixa", valorAtualizado: rfCartValor, ganhoFinanceiro: rfCartGanho, rentabilidade: rfCartRent });
+      if (cambioAdaptedRows.length > 0) summaryRows.push({ status: computeCartStatus("Câmbio"), carteira: "Moedas", valorAtualizado: cambioCartValor, ganhoFinanceiro: cambioCartGanho, rentabilidade: cambioCartRent });
+      setCarteiraSummary(summaryRows);
+      _cachedCarteiraSummary = summaryRows;
+
       console.log(`[PERF][PosConsolidada]   carteira TWR: ${(performance.now()-tCarteira).toFixed(0)}ms`);
 
       // Only update state if this is still the latest request
