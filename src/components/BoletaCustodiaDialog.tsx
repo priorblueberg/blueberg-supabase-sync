@@ -219,7 +219,14 @@ export default function BoletaCustodiaDialog({
           .maybeSingle();
 
         const cotacao = cotacaoDia?.cotacao_venda ? Number(cotacaoDia.cotacao_venda) : null;
-        if (cotacao) setValorCotaDia(cotacao);
+        if (cotacao) {
+          setValorCotaDia(cotacao);
+          setCotacaoRef(cotacao);
+          setCotacaoNeg(formatCurrency(Math.round(cotacao * 100).toString()));
+        } else {
+          setCotacaoRef(null);
+          setCotacaoNeg("");
+        }
 
         if (tipo === "Resgate") {
           const { data: movs } = await supabase
@@ -239,6 +246,8 @@ export default function BoletaCustodiaDialog({
         }
       } catch {
         setValorCotaDia(null);
+        setCotacaoRef(null);
+        setCotacaoNeg("");
         setSaldoDisponivel(null);
       } finally {
         setLoadingCota(false);
