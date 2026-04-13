@@ -738,7 +738,7 @@ export async function syncControleCarteiras(categoriaId: string, userId: string,
 
   const { data: custodiaRows } = await supabase
     .from("custodia")
-    .select("data_inicio, data_limite, data_calculo")
+    .select("data_inicio, data_limite")
     .eq("categoria_id", categoriaId)
     .eq("user_id", userId);
 
@@ -758,7 +758,6 @@ export async function syncControleCarteiras(categoriaId: string, userId: string,
 
   const dataInicio = dates("data_inicio")[0] || null;
   const dataLimite = dates("data_limite").reverse()[0] || null;
-  const dataCalculo = dates("data_calculo").reverse()[0] || null;
 
   // Compute resgate_total from custodia for this category
   // Get the most recent resgate_total (vencimento or fechamento date) from custodia
@@ -807,13 +806,19 @@ export async function syncControleCarteiras(categoriaId: string, userId: string,
   // Map category name to carteira name
   const nomeCarteira = categoriaNome === "Moedas" ? "Câmbio" : categoriaNome;
 
+  // Compute data_calculo from the rule: respect resgate_total cap
+  let dataCalculoCarteira: string | null = refDate;
+  if (resgateTotal && refDate > resgateTotal) {
+    dataCalculoCarteira = resgateTotal;
+  }
+
   const carteiraData = {
     categoria_id: categoriaId,
     nome_carteira: nomeCarteira,
     data_inicio: dataInicio,
     data_limite: dataLimite,
     resgate_total: resgateTotal,
-    data_calculo: dataCalculo,
+    data_calculo: dataCalculoCarteira,
     status,
     user_id: userId,
   };
@@ -825,16 +830,18 @@ export async function syncControleCarteiras(categoriaId: string, userId: string,
   await syncCarteiraGeral(userId, refDate);
 }
 
-/** Recalculate the general "Investimentos" carteira */
+/** Recalculate the general "Investimentos" carteira from other carteiras (not custodia) */
 export async function syncCarteiraGeral(userId: string, dataReferencia?: string) {
   const refDate = dataReferencia || new Date().toISOString().slice(0, 10);
 
-  const { data: allCustodia } = await supabase
-    .from("custodia")
-    .select("data_inicio, data_limite, data_calculo, vencimento, codigo_custodia")
-    .eq("user_id", userId);
+  // Build from other controle_de_carteiras rows, NOT from custodia
+  const { data: otherCarteiras } = await supabase
+    .from("controle_de_carteiras")
+    .select("data_inicio, data_limite, resgate_total, data_calculo")
+    .eq("user_id", userId)
+    .neq("nome_carteira", "Investimentos");
 
-  if (!allCustodia || allCustodia.length === 0) {
+  if (!otherCarteiras || otherCarteiras.length === 0) {
     await supabase
       .from("controle_de_carteiras")
       .delete()
@@ -843,38 +850,28 @@ export async function syncCarteiraGeral(userId: string, dataReferencia?: string)
     return;
   }
 
-  const dates = (field: string) =>
-    allCustodia.map((r: any) => r[field]).filter(Boolean).sort();
+  const dataInicios = otherCarteiras.map(r => r.data_inicio).filter(Boolean).sort();
+  const dataLimites = otherCarteiras.map(r => r.data_limite).filter(Boolean).sort();
+  const resgateTotais = otherCarteiras.map(r => r.resgate_total).filter(Boolean).sort();
+  const dataCalculos = otherCarteiras.map(r => r.data_calculo).filter(Boolean).sort();
 
-  const dataInicio = dates("data_inicio")[0] || null;
-  const dataLimite = dates("data_limite").reverse()[0] || null;
-  const dataCalculo = dates("data_calculo").reverse()[0] || null;
+  const dataInicio = dataInicios[0] || null;
+  const dataLimite = dataLimites.length > 0 ? dataLimites[dataLimites.length - 1] : null;
 
-  // Compute resgate_total across all custodia
-  const resgateDates: string[] = [];
-  let hasActiveWithoutResgate = false;
-  for (const row of allCustodia) {
-    const rt = await computeResgateTotal(row.codigo_custodia, userId, row.vencimento);
-    if (rt) {
-      resgateDates.push(rt);
-    } else {
-      hasActiveWithoutResgate = true;
-    }
-  }
+  // resgate_total: if any carteira has no resgate_total, Investimentos stays open
+  const hasActiveWithoutResgate = otherCarteiras.some(r => !r.resgate_total);
   let resgateTotal: string | null = null;
-  if (hasActiveWithoutResgate) {
-    resgateTotal = null;
-  } else if (resgateDates.length > 0) {
-    resgateDates.sort();
-    resgateTotal = resgateDates[resgateDates.length - 1];
+  if (!hasActiveWithoutResgate && resgateTotais.length > 0) {
+    resgateTotal = resgateTotais[resgateTotais.length - 1];
   }
+
+  // data_calculo: largest from sub-carteiras
+  const dataCalculo = dataCalculos.length > 0 ? dataCalculos[dataCalculos.length - 1] : refDate;
 
   let status = "Ativa";
   if (dataInicio && refDate < dataInicio) {
     status = "Não Iniciada";
-  } else if (resgateTotal && resgateTotal > refDate) {
-    status = "Ativa";
-  } else if (resgateTotal && resgateTotal <= refDate) {
+  } else if (resgateTotal && refDate >= resgateTotal) {
     status = "Encerrada";
   }
 
