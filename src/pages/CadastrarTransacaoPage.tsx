@@ -983,7 +983,6 @@ export default function CadastrarTransacaoPage() {
           produto_id: produtoId,
           valor: valorNum,
           preco_unitario: noFields ? (isMoedas ? puNum : null) : puNum,
-          // @ts-ignore – for Moedas "Valor em espécie": no institution
           instituicao_id: (isMoedas && valorEmEspecie) ? null : instituicaoId,
           emissor_id: isPoupanca ? (() => {
             const instNome = instituicoes.find((i) => i.id === instituicaoId)?.nome || "";
