@@ -746,22 +746,15 @@ export default function CadastrarTransacaoPage() {
         const fmtBR = (v: number) =>
           v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        // For Moedas resgate: calculate currency quantity from BRL value
+        // For Moedas resgate: use user-editable cotação
         const isMoedasResgate = categoriaSelecionada?.nome === "Moedas";
         let resgateQty: number | null = null;
         let resgatePU: number | null = null;
         if (isMoedasResgate) {
-          // Determine which cotação table to use based on the product
-          const resgateProdutoNome = produtos.find(p => p.id === selectedCustodia.produto_id)?.nome || "";
-          const cotacaoTable = resgateProdutoNome.toLowerCase().includes("euro") ? "historico_euro" : "historico_dolar";
-          const { data: cotRow } = await supabase
-            .from(cotacaoTable)
-            .select("cotacao_venda")
-            .eq("data", data)
-            .maybeSingle();
-          if (cotRow) {
-            resgatePU = cotRow.cotacao_venda;
-            resgateQty = valorNum / cotRow.cotacao_venda;
+          const cotNeg = parseCurrencyToNumber(resgateCotacaoNeg);
+          if (cotNeg > 0) {
+            resgatePU = cotNeg;
+            resgateQty = valorNum / cotNeg;
           }
         }
 
