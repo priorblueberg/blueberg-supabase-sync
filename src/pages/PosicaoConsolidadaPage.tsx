@@ -72,9 +72,11 @@ interface PosicaoRow {
 let _cachedVersion: number | null = null;
 let _cachedRows: PosicaoRow[] = [];
 let _cachedRentabilidade = 0;
+let _cachedCarteiraSummary: CarteiraSummaryRow[] = [];
+let _cachedPeriodoInicio: string | null = null;
 
 import { registerCacheReset } from "@/lib/resetCaches";
-registerCacheReset(() => { _cachedVersion = null; _cachedRows = []; _cachedRentabilidade = 0; });
+registerCacheReset(() => { _cachedVersion = null; _cachedRows = []; _cachedRentabilidade = 0; _cachedCarteiraSummary = []; _cachedPeriodoInicio = null; });
 
 export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
