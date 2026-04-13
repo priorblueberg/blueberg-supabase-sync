@@ -560,17 +560,30 @@ export default function CadastrarTransacaoPage() {
           cdiRecords,
         });
 
-        const rowDia = rows.find((r) => r.data === dateISO);
-        if (rowDia) {
-          setSaldoDisponivel(rowDia.liquido);
+        // Use liquido2 (before resgates) = the actual resgateable balance
+        // Fall back to last row <= dateISO if no exact match
+        let targetRow = rows.find((r) => r.data === dateISO);
+        if (!targetRow && rows.length > 0) {
+          for (let i = rows.length - 1; i >= 0; i--) {
+            if (rows[i].data <= dateISO) {
+              targetRow = rows[i];
+              break;
+            }
+          }
+        }
+        if (targetRow) {
+          setSaldoDisponivel(targetRow.liquido2);
         }
       } catch {
         setSaldoDisponivel(null);
       } finally {
         setCalculandoSaldo(false);
       }
-    } else {
+    } else if (selectedCustodia.modalidade === "Poupança") {
+      // Poupança without engine params — still try to compute via engine
       setSaldoDisponivel(selectedCustodia.valor_investido);
+    } else {
+      setSaldoDisponivel(null);
     }
   };
 
