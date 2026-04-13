@@ -1097,14 +1097,14 @@ export default function CadastrarTransacaoPage() {
           )}
         </div>
 
-        {/* ── Aplicação Flow ── */}
-        {(isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate)) && isRendaFixa && !isPoupanca && (
+        {/* ── Aplicação Flow (Renda Fixa — includes Poupança) ── */}
+        {(isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate)) && isRendaFixa && (
           <>
-            {/* Produto selector */}
+            {/* Produto selector — always visible */}
             <Field label="Produto" required>
               <NativeSelect
                 value={produtoId}
-                onChange={setProdutoId}
+                onChange={(v) => { setProdutoId(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("produtoId"); return n; }); }}
                 placeholder="Selecione"
                 disabled={isEditing}
                 options={produtos.map((p) => ({
@@ -1114,7 +1114,73 @@ export default function CadastrarTransacaoPage() {
               />
             </Field>
 
-            {showAplicacaoFields && (
+            {/* ── Poupança simplified fields ── */}
+            {isPoupanca && showPoupancaFields && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Data de Transação" required>
+                    <input
+                      type="date"
+                      value={data}
+                      onChange={(e) => { setData(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
+                      className={`input-field ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                    />
+                  </Field>
+
+                  <Field label="Valor da Aplicação" required>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                        R$
+                      </span>
+                      <input
+                        type="text"
+                        value={valor}
+                        onChange={(e) => { setValor(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
+                        placeholder="0,00"
+                        className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`}
+                      />
+                    </div>
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Banco" required>
+                    <SearchableSelect
+                      value={instituicaoId}
+                      onChange={(v) => { setInstituicaoId(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("instituicaoId"); return n; }); }}
+                      placeholder="Pesquisar banco..."
+                      hasError={validationErrors.has("instituicaoId")}
+                      options={instituicoes.map((i) => ({
+                        value: i.id,
+                        label: i.nome,
+                      }))}
+                    />
+                  </Field>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="rounded-md bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-[hsl(145,63%,32%)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[hsl(145,63%,28%)] transition-colors disabled:opacity-50"
+                  >
+                    <PlusCircle size={16} />
+                    {submitting ? "Enviando..." : isEditing ? "Salvar Alterações" : "Enviar"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── Standard RF fields (non-Poupança) ── */}
+            {!isPoupanca && showAplicacaoFields && (
               <>
                 {/* Row 1: Data, Valor Inicial, Preço de Emissão, Vencimento */}
                 <div className="grid grid-cols-4 gap-4">
@@ -1268,80 +1334,6 @@ export default function CadastrarTransacaoPage() {
                         label: p,
                       }))}
                       hasError={validationErrors.has("pagamento")}
-                    />
-                  </Field>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="rounded-md bg-destructive px-5 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={submitting}
-                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-[hsl(145,63%,32%)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[hsl(145,63%,28%)] transition-colors disabled:opacity-50"
-                  >
-                    <PlusCircle size={16} />
-                    {submitting ? "Enviando..." : isEditing ? "Salvar Alterações" : "Enviar"}
-                  </button>
-                </div>
-              </>
-            )}
-          </>
-        )}
-
-        {/* ── Poupança Aplicação Flow (product-based) ── */}
-        {isPoupanca && isRendaFixa && (isAplicacao || (isEditing && !!tipoMovimentacao && !isResgate)) && (
-          <>
-            {/* Produto auto-selected, no selector needed */}
-
-            {showPoupancaFields && (
-              <>
-                {/* Row 1: Data, Valor */}
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Data de Transação" required>
-                    <input
-                      type="date"
-                      value={data}
-                      onChange={(e) => { setData(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
-                      className={`input-field ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`}
-                    />
-                  </Field>
-
-                  <Field label="Valor da Aplicação" required>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                        R$
-                      </span>
-                      <input
-                        type="text"
-                        value={valor}
-                        onChange={(e) => { setValor(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("valor"); return n; }); }}
-                        placeholder="0,00"
-                        className={`input-field pl-9 ${validationErrors.has("valor") ? "border-destructive ring-1 ring-destructive" : ""}`}
-                      />
-                    </div>
-                  </Field>
-                </div>
-
-                {/* Row 2: Banco */}
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Banco" required>
-                    <SearchableSelect
-                      value={instituicaoId}
-                      onChange={(v) => { setInstituicaoId(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("instituicaoId"); return n; }); }}
-                      placeholder="Pesquisar banco..."
-                      hasError={validationErrors.has("instituicaoId")}
-                      options={instituicoes.map((i) => ({
-                        value: i.id,
-                        label: i.nome,
-                      }))}
                     />
                   </Field>
                 </div>
