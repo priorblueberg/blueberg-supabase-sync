@@ -693,8 +693,8 @@ export default function CarteiraInvestimentosPage() {
 
             {/* Patrimônio Mensal */}
             <div className="rounded-md border border-border bg-card p-6">
-              <h2 className="text-sm font-semibold text-foreground">Patrimônio Mensal</h2>
-              <p className="mt-1 text-xs text-muted-foreground">Evolução do patrimônio por mês (R$)</p>
+              <h2 className="text-sm font-semibold text-foreground">Patrimônio - Últimos 12 meses</h2>
+              <p className="mt-1 text-xs text-muted-foreground">Evolução do patrimônio mensal (R$)</p>
               <div className="mt-4 h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={monthlyBarData}>
