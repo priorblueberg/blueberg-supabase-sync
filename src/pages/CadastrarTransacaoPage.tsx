@@ -1406,18 +1406,30 @@ export default function CadastrarTransacaoPage() {
 
                 {/* Row 2: Cotação, Quantidade */}
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label={`Cotação ${produtoSelecionado?.nome || "da Moeda"} (PTAX)`}>
+                  <Field label={`Cotação da Negociação (R$/${isEuro ? "EUR" : "USD"})`} required>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                         R$
                       </span>
                       <input
                         type="text"
-                        value={cotacaoLoading ? "Buscando..." : cotacaoMoeda != null ? cotacaoMoeda.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : (data ? "Não encontrada" : "")}
-                        disabled
-                        className="input-field pl-9 opacity-60"
+                        value={cotacaoLoading ? "Buscando..." : cotacaoNegociacao}
+                        onChange={(e) => setCotacaoNegociacao(formatValorInicial(e.target.value))}
+                        disabled={cotacaoLoading}
+                        placeholder="0,0000"
+                        className={`input-field pl-9 ${validationErrors.has("cotacaoNegociacao") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
                     </div>
+                    {cotacaoMoeda != null && (
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Cotação PTAX de referência: R$ {cotacaoMoeda.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                      </p>
+                    )}
+                    {!cotacaoLoading && data && cotacaoMoeda == null && (
+                      <p className="text-[11px] text-amber-500 mt-1">
+                        PTAX não encontrada para esta data. Informe a cotação manualmente.
+                      </p>
+                    )}
                   </Field>
 
                   <Field label={`Quantidade (${isEuro ? "EUR" : "USD"})`}>
