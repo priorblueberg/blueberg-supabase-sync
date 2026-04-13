@@ -809,9 +809,10 @@ export default function CadastrarTransacaoPage() {
     let requiredFields: Record<string, string>;
 
     if (isMoedas && isMoeda) {
-      requiredFields = { categoriaId, tipoMovimentacao, produtoId, valor, data, instituicaoId };
-      if (!cotacaoMoeda) {
-        toast.error("Cotação do dólar não encontrada para a data selecionada.");
+      const cotNeg = parseCurrencyToNumber(cotacaoNegociacao);
+      requiredFields = { categoriaId, tipoMovimentacao, produtoId, valor, data, instituicaoId, cotacaoNegociacao };
+      if (cotNeg <= 0) {
+        toast.error("Informe a cotação da negociação.");
         return;
       }
     } else if (isPoupanca) {
