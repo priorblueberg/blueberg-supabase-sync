@@ -112,13 +112,25 @@ export default function PosicaoConsolidadaPage() {
     setLoading(true);
     try {
       const tFetch = performance.now();
-      const { data: products } = await supabase
-        .from("custodia")
-        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, valor_investido, resgate_total, pagamento, vencimento, indexador, data_limite, quantidade, categoria_id, produto_id, instituicao_id, emissor_id, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
-        .eq("user_id", user!.id);
+      const [{ data: products }, { data: carteirasData }] = await Promise.all([
+        supabase
+          .from("custodia")
+          .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, valor_investido, resgate_total, pagamento, vencimento, indexador, data_limite, quantidade, categoria_id, produto_id, instituicao_id, emissor_id, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
+          .eq("user_id", user!.id),
+        supabase
+          .from("controle_de_carteiras")
+          .select("nome_carteira, status, data_inicio, data_calculo, data_limite, resgate_total")
+          .eq("user_id", user!.id),
+      ]);
       console.log(`[PERF][PosConsolidada]   fetch custodia: ${(performance.now()-tFetch).toFixed(0)}ms (${products?.length || 0} rows)`);
 
-      if (!products || products.length === 0) { setRows([]); _cachedRows = []; _cachedVersion = appliedVersion; setLoading(false); return; }
+      // Extract periodo inicio from carteira Investimentos
+      const invCart = (carteirasData || []).find((c: any) => c.nome_carteira === "Investimentos");
+      const pInicio = invCart?.data_inicio || null;
+      setPeriodoInicio(pInicio);
+      _cachedPeriodoInicio = pInicio;
+
+      if (!products || products.length === 0) { setRows([]); _cachedRows = []; setCarteiraSummary([]); _cachedCarteiraSummary = []; _cachedVersion = appliedVersion; setLoading(false); return; }
 
       const mapped: CustodiaProduct[] = products.map((r: any) => ({
         id: r.id,
