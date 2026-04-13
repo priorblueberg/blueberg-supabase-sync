@@ -212,11 +212,58 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
           });
           setEngineRows(poupRows as unknown as DailyRow[]);
         }
+      } else if (isMoedas) {
+        // Run Câmbio engine for Dólar/Euro
+        const productMovs = allMovs
+          .filter(m => m.codigo_custodia === product.codigo_custodia)
+          .map(m => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: m.valor, preco_unitario: m.preco_unitario != null ? Number(m.preco_unitario) : null, quantidade: m.quantidade != null ? Number(m.quantidade) : null }));
+
+        const cotacaoTable = getCotacaoTable(product.produto_nome);
+        const { data: cotData } = await supabase
+          .from(cotacaoTable)
+          .select("data, cotacao_venda")
+          .gte("data", getDateMinus(product.data_inicio, 5))
+          .lte("data", dataReferenciaISO)
+          .order("data");
+
+        if (currentVersion !== calcVersionRef.current) return;
+
+        const cotacaoRecords = (cotData || []).map((d: any) => ({ data: d.data, cotacao_venda: Number(d.cotacao_venda) }));
+
+        const cambioRows = calcularCambioDiario({
+          dataInicio: product.data_inicio,
+          dataCalculo: dataReferenciaISO,
+          cotacaoInicial: product.preco_unitario || 1,
+          calendario: calendario.map(d => ({ data: d.data, dia_util: d.dia_util })),
+          movimentacoes: productMovs,
+          historicoCotacao: cotacaoRecords,
+          dataResgateTotal: product.resgate_total,
+        });
+
+        // Adapt CambioDailyRow to DailyRow shape
+        const adaptedRows: DailyRow[] = cambioRows.map(r => ({
+          data: r.data,
+          diaUtil: r.diaUtil,
+          liquido: r.valorBRL,
+          aplicacoes: r.aplicacoesBRL,
+          resgates: r.resgatesBRL,
+          saldoCotas: r.quantidadeMoeda,
+          ganhoAcumulado: r.rentAcumuladaBRL,
+          ganhoDiario: r.ganhoDiarioBRL,
+          rentabilidadeDiaria: r.rentDiariaPct,
+          rentabilidadeAcumuladaPct: r.rentAcumuladaPct,
+          rentAcumulada2: r.rentAcumuladaPct,
+          valorCota: r.cotacao,
+          valorCota2: r.cotacao,
+          jurosPago: 0,
+        } as unknown as DailyRow));
+
+        setEngineRows(adaptedRows);
       }
 
       setLoading(false);
     })();
-  }, [product, appliedVersion, user, dataReferenciaISO, isPrefixado, isPoupanca]);
+  }, [product, appliedVersion, user, dataReferenciaISO, isPrefixado, isPoupanca, isMoedas]);
 
   // Chart data: merge both series
   const chartData = useMemo(() => {
