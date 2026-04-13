@@ -87,6 +87,7 @@ let _invCached: {
   cdiRecords: CdiRecord[];
   ibovespaData: { data: string; pontos: number }[];
   unifiedProducts: UnifiedProduct[];
+  carteiraSummary: CarteiraSummaryRow[];
   dataInicio: string | null;
   dataCalculo: string | null;
   rfPatrimonio: number;
