@@ -438,6 +438,25 @@ export default function CarteiraInvestimentosPage() {
         setRfPatrimonio(rfPat);
         setCambioPatrimonio(cambioPat);
 
+        // Build carteiras summary for this page
+        const rfRent = rfResult.length > 0 ? rfResult[rfResult.length - 1].rentAcumuladaPct * 100 : 0;
+        const rfGanho = rfResult.length > 0 ? rfResult[rfResult.length - 1].rentAcumuladaRS : 0;
+        const cambioRent = cambioResult.length > 0 ? cambioResult[cambioResult.length - 1].rentAcumuladaPct * 100 : 0;
+        const cambioGanho = cambioResult.length > 0 ? cambioResult[cambioResult.length - 1].rentAcumuladaRS : 0;
+
+        const computeStatus = (cartName: string) => {
+          const cart = (carteirasData || []).find((c: any) => c.nome_carteira === cartName);
+          if (!cart) return "Ativa";
+          if (cart.data_inicio && dataReferenciaISO < cart.data_inicio) return "Não Iniciada";
+          if (cart.resgate_total && dataReferenciaISO >= cart.resgate_total) return "Encerrada";
+          return "Ativa";
+        };
+
+        const cSummary: CarteiraSummaryRow[] = [];
+        if (rfResult.length > 0) cSummary.push({ status: computeStatus("Renda Fixa"), carteira: "Renda Fixa", valorAtualizado: rfPat, ganhoFinanceiro: rfGanho, rentabilidade: rfRent });
+        if (cambioResult.length > 0) cSummary.push({ status: computeStatus("Câmbio"), carteira: "Moedas", valorAtualizado: cambioPat, ganhoFinanceiro: cambioGanho, rentabilidade: cambioRent });
+        setCarteiraSummary(cSummary);
+
         _invCachedVersion = appliedVersion;
         _invCached = {
           consolidatedRows: consolidated,
@@ -446,6 +465,7 @@ export default function CarteiraInvestimentosPage() {
           cdiRecords: mergedCdi,
           ibovespaData: ibovRaw,
           unifiedProducts: products,
+          carteiraSummary: cSummary,
           dataInicio: globalDataInicio,
           dataCalculo: globalDataCalculo,
           rfPatrimonio: rfPat,
