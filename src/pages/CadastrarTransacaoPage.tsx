@@ -879,7 +879,7 @@ export default function CadastrarTransacaoPage() {
       let quantidade: number | null;
 
       if (isMoedas && isMoeda) {
-        puNum = cotacaoMoeda!;
+        puNum = parseCurrencyToNumber(cotacaoNegociacao);
         taxaNum = 0;
         quantidade = quantidadeMoeda;
       } else if (isPoupanca) {
