@@ -251,9 +251,13 @@ export default function CadastrarTransacaoPage() {
   const selectedCustodia = custodiaItems.find((c) => c.id === selectedCustodiaId);
 
   // Moeda-specific state (Dólar or Euro)
-  const [cotacaoMoeda, setCotacaoMoeda] = useState<number | null>(null);
+  const [cotacaoMoeda, setCotacaoMoeda] = useState<number | null>(null); // PTAX reference
+  const [cotacaoNegociacao, setCotacaoNegociacao] = useState(""); // user-editable
   const [cotacaoLoading, setCotacaoLoading] = useState(false);
   const [quantidadeMoeda, setQuantidadeMoeda] = useState<number | null>(null);
+  // Resgate moeda editable cotação
+  const [resgateCotacaoRef, setResgateCotacaoRef] = useState<number | null>(null);
+  const [resgateCotacaoNeg, setResgateCotacaoNeg] = useState("");
 
   // Load categorias on mount — only Renda Fixa (Poupança is now a product within RF)
   useEffect(() => {
