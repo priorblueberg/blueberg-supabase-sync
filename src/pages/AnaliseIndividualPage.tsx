@@ -505,14 +505,14 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
             {/* Bar chart — Patrimônio Mensal */}
             <div className="rounded-md border border-border bg-card p-6">
               <h2 className="text-sm font-semibold text-foreground">
-                Patrimônio Mensal
+                Patrimônio - Últimos 12 meses
               </h2>
-              <p className="mt-1 text-xs text-muted-foreground">Evolução do patrimônio por mês (R$)</p>
+              <p className="mt-1 text-xs text-muted-foreground">Evolução do patrimônio mensal (R$)</p>
               <div className="mt-4 h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={(() => {
                     const MONTH_LABELS = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
-                    const barData: { mes: string; patrimonio: number }[] = [];
+                    const barData: { mes: string; patrimonio: number; sortKey: string }[] = [];
                     const chronRows = [...detailRows].reverse();
                     for (const row of chronRows) {
                       for (let m = 0; m < 12; m++) {
@@ -520,11 +520,15 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
                           barData.push({
                             mes: `${MONTH_LABELS[m]}/${String(row.year).slice(2)}`,
                             patrimonio: row.patrimonioMonths[m]!,
+                            sortKey: `${row.year}-${String(m).padStart(2, "0")}`,
                           });
                         }
                       }
                     }
-                    return barData;
+                    const refDate = new Date(dataReferenciaISO + "T00:00:00");
+                    refDate.setMonth(refDate.getMonth() - 11);
+                    const cutoff = `${refDate.getFullYear()}-${String(refDate.getMonth()).padStart(2, "0")}`;
+                    return barData.filter(d => d.sortKey >= cutoff);
                   })()}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis

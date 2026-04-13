@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import CarteirasSummaryTable, { type CarteiraSummaryRow } from "@/components/CarteirasSummaryTable";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -86,6 +87,7 @@ let _invCached: {
   cdiRecords: CdiRecord[];
   ibovespaData: { data: string; pontos: number }[];
   unifiedProducts: UnifiedProduct[];
+  carteiraSummary: CarteiraSummaryRow[];
   dataInicio: string | null;
   dataCalculo: string | null;
   rfPatrimonio: number;
@@ -109,6 +111,7 @@ export default function CarteiraInvestimentosPage() {
   const [dataCalculo, setDataCalculo] = useState<string | null>(_invCached?.dataCalculo ?? null);
   const [rfPatrimonio, setRfPatrimonio] = useState(_invCached?.rfPatrimonio ?? 0);
   const [cambioPatrimonio, setCambioPatrimonio] = useState(_invCached?.cambioPatrimonio ?? 0);
+  const [carteiraSummary, setCarteiraSummary] = useState<CarteiraSummaryRow[]>(_invCached?.carteiraSummary ?? []);
   const [seriesVisibility, setSeriesVisibility] = useState({ cdi: true, ibovespa: false });
   const calcVersionRef = useRef(0);
 
@@ -435,6 +438,25 @@ export default function CarteiraInvestimentosPage() {
         setRfPatrimonio(rfPat);
         setCambioPatrimonio(cambioPat);
 
+        // Build carteiras summary for this page
+        const rfRent = rfResult.length > 0 ? rfResult[rfResult.length - 1].rentAcumuladaPct * 100 : 0;
+        const rfGanho = rfResult.length > 0 ? rfResult[rfResult.length - 1].rentAcumuladaRS : 0;
+        const cambioRent = cambioResult.length > 0 ? cambioResult[cambioResult.length - 1].rentAcumuladaPct * 100 : 0;
+        const cambioGanho = cambioResult.length > 0 ? cambioResult[cambioResult.length - 1].rentAcumuladaRS : 0;
+
+        const computeStatus = (cartName: string) => {
+          const cart = (carteirasData || []).find((c: any) => c.nome_carteira === cartName);
+          if (!cart) return "Ativa";
+          if (cart.data_inicio && dataReferenciaISO < cart.data_inicio) return "Não Iniciada";
+          if (cart.resgate_total && dataReferenciaISO >= cart.resgate_total) return "Encerrada";
+          return "Ativa";
+        };
+
+        const cSummary: CarteiraSummaryRow[] = [];
+        if (rfResult.length > 0) cSummary.push({ status: computeStatus("Renda Fixa"), carteira: "Renda Fixa", valorAtualizado: rfPat, ganhoFinanceiro: rfGanho, rentabilidade: rfRent });
+        if (cambioResult.length > 0) cSummary.push({ status: computeStatus("Câmbio"), carteira: "Moedas", valorAtualizado: cambioPat, ganhoFinanceiro: cambioGanho, rentabilidade: cambioRent });
+        setCarteiraSummary(cSummary);
+
         _invCachedVersion = appliedVersion;
         _invCached = {
           consolidatedRows: consolidated,
@@ -443,6 +465,7 @@ export default function CarteiraInvestimentosPage() {
           cdiRecords: mergedCdi,
           ibovespaData: ibovRaw,
           unifiedProducts: products,
+          carteiraSummary: cSummary,
           dataInicio: globalDataInicio,
           dataCalculo: globalDataCalculo,
           rfPatrimonio: rfPat,
@@ -502,10 +525,16 @@ export default function CarteiraInvestimentosPage() {
     const MONTH_LABELS = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
     const monthMap = new Map<string, number>();
 
+    // Compute 12-month cutoff
+    const refDate = new Date(dataReferenciaISO + "T00:00:00");
+    refDate.setMonth(refDate.getMonth() - 11);
+    const cutoffKey = `${refDate.getFullYear()}-${String(refDate.getMonth()).padStart(2, "0")}`;
+
     for (const row of consolidatedRows) {
       if (row.patrimonio <= 0) continue;
       const dt = new Date(row.data + "T00:00:00");
       const key = `${dt.getFullYear()}-${String(dt.getMonth()).padStart(2, "0")}`;
+      if (key < cutoffKey) continue;
       monthMap.set(key, row.patrimonio);
     }
 
@@ -515,7 +544,7 @@ export default function CarteiraInvestimentosPage() {
         const [y, m] = key.split("-");
         return { mes: `${MONTH_LABELS[parseInt(m)]}/${y.slice(2)}`, patrimonio };
       });
-  }, [consolidatedRows]);
+  }, [consolidatedRows, dataReferenciaISO]);
 
   // Detail rows for RentabilidadeDetailTable
   const detailRows = useMemo(() => {
@@ -664,8 +693,8 @@ export default function CarteiraInvestimentosPage() {
 
             {/* Patrimônio Mensal */}
             <div className="rounded-md border border-border bg-card p-6">
-              <h2 className="text-sm font-semibold text-foreground">Patrimônio Mensal</h2>
-              <p className="mt-1 text-xs text-muted-foreground">Evolução do patrimônio por mês (R$)</p>
+              <h2 className="text-sm font-semibold text-foreground">Patrimônio - Últimos 12 meses</h2>
+              <p className="mt-1 text-xs text-muted-foreground">Evolução do patrimônio mensal (R$)</p>
               <div className="mt-4 h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={monthlyBarData}>
@@ -744,45 +773,11 @@ export default function CarteiraInvestimentosPage() {
             <RentabilidadeDetailTable rows={detailRows} tituloLabel="Rentabilidade" />
           )}
 
-          {/* Posição Consolidada Geral */}
-          {unifiedProducts.length > 0 && (
-            <div className="space-y-1">
-              <h2 className="text-sm font-semibold text-foreground">Posição Consolidada</h2>
-              <div className="rounded-lg border bg-card">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[50px]">Status</TableHead>
-                      <TableHead className="min-w-[100px]">Categoria</TableHead>
-                      <TableHead className="min-w-[250px]">Ativo</TableHead>
-                      <TableHead className="min-w-[130px] text-right">Valor Atualizado</TableHead>
-                      <TableHead className="min-w-[130px] text-right">Ganho Financeiro</TableHead>
-                      <TableHead className="min-w-[110px] text-right">Rentabilidade</TableHead>
-                      <TableHead className="min-w-[150px]">Custodiante</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {unifiedProducts.map((row, i) => (
-                      <TableRow key={i}>
-                        <TableCell>
-                          <Badge
-                            variant={row.ativo ? "default" : "secondary"}
-                            className={row.ativo ? "bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] px-2 py-0.5" : "bg-muted text-muted-foreground text-[10px] px-2 py-0.5"}
-                          >
-                            {row.ativo ? "Em custódia" : "Liquidado"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{row.categoria}</TableCell>
-                        <TableCell className="font-medium text-foreground">{row.nome}</TableCell>
-                        <TableCell className="text-right text-foreground">{fmtBrl(row.valorAtualizado)}</TableCell>
-                        <TableCell className="text-right text-foreground">{fmtBrl(row.ganhoFinanceiro)}</TableCell>
-                        <TableCell className="text-right text-foreground">{row.rentabilidade.toFixed(2)}%</TableCell>
-                        <TableCell className="text-foreground">{row.custodiante}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+          {/* Posição por Carteiras (sem Investimentos) */}
+          {carteiraSummary.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-sm font-semibold text-foreground">Posição por Carteiras</h2>
+              <CarteirasSummaryTable rows={carteiraSummary} hideCarteiras={["Investimentos"]} />
             </div>
           )}
         </>

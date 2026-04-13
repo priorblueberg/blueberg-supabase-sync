@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import BoletaCustodiaDialog, { type CustodiaRowForBoleta } from "@/components/BoletaCustodiaDialog";
 import PosicaoDetalheDialog, { type PosicaoDetalheData } from "@/components/PosicaoDetalheDialog";
+import CarteirasSummaryTable, { type CarteiraSummaryRow } from "@/components/CarteirasSummaryTable";
 
 interface CustodiaProduct {
   id: string;
@@ -71,15 +72,19 @@ interface PosicaoRow {
 let _cachedVersion: number | null = null;
 let _cachedRows: PosicaoRow[] = [];
 let _cachedRentabilidade = 0;
+let _cachedCarteiraSummary: CarteiraSummaryRow[] = [];
+let _cachedPeriodoInicio: string | null = null;
 
 import { registerCacheReset } from "@/lib/resetCaches";
-registerCacheReset(() => { _cachedVersion = null; _cachedRows = []; _cachedRentabilidade = 0; });
+registerCacheReset(() => { _cachedVersion = null; _cachedRows = []; _cachedRentabilidade = 0; _cachedCarteiraSummary = []; _cachedPeriodoInicio = null; });
 
 export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
   const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const [rows, setRows] = useState<PosicaoRow[]>(_cachedRows);
   const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(_cachedRentabilidade);
+  const [carteiraSummary, setCarteiraSummary] = useState<CarteiraSummaryRow[]>(_cachedCarteiraSummary);
+  const [periodoInicio, setPeriodoInicio] = useState<string | null>(_cachedPeriodoInicio);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [rentSort, setRentSort] = useState<"none" | "asc" | "desc">("none");
@@ -107,13 +112,25 @@ export default function PosicaoConsolidadaPage() {
     setLoading(true);
     try {
       const tFetch = performance.now();
-      const { data: products } = await supabase
-        .from("custodia")
-        .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, valor_investido, resgate_total, pagamento, vencimento, indexador, data_limite, quantidade, categoria_id, produto_id, instituicao_id, emissor_id, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
-        .eq("user_id", user!.id);
+      const [{ data: products }, { data: carteirasData }] = await Promise.all([
+        supabase
+          .from("custodia")
+          .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, valor_investido, resgate_total, pagamento, vencimento, indexador, data_limite, quantidade, categoria_id, produto_id, instituicao_id, emissor_id, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
+          .eq("user_id", user!.id),
+        supabase
+          .from("controle_de_carteiras")
+          .select("nome_carteira, status, data_inicio, data_calculo, data_limite, resgate_total")
+          .eq("user_id", user!.id),
+      ]);
       console.log(`[PERF][PosConsolidada]   fetch custodia: ${(performance.now()-tFetch).toFixed(0)}ms (${products?.length || 0} rows)`);
 
-      if (!products || products.length === 0) { setRows([]); _cachedRows = []; _cachedVersion = appliedVersion; setLoading(false); return; }
+      // Extract periodo inicio from carteira Investimentos
+      const invCart = (carteirasData || []).find((c: any) => c.nome_carteira === "Investimentos");
+      const pInicio = invCart?.data_inicio || null;
+      setPeriodoInicio(pInicio);
+      _cachedPeriodoInicio = pInicio;
+
+      if (!products || products.length === 0) { setRows([]); _cachedRows = []; setCarteiraSummary([]); _cachedCarteiraSummary = []; _cachedVersion = appliedVersion; setLoading(false); return; }
 
       const mapped: CustodiaProduct[] = products.map((r: any) => ({
         id: r.id,
@@ -400,21 +417,80 @@ export default function PosicaoConsolidadaPage() {
 
       // Compute TWR for total rentabilidade using carteira engine
       const tCarteira = performance.now();
-      if (allProductRows.length > 0) {
-        const carteiraRows = calcularCarteiraRendaFixa({
-          productRows: allProductRows,
-          calendario,
-          dataInicio: minDate,
+
+      // Also compute per-category TWR for carteiras summary
+      const rfOnlyRows = allProductRows.slice(0, rfProducts.length + poupancaProducts.length);
+      // cambio rows were not added to allProductRows — compute separately
+      const cambioAdaptedRows: DailyRow[][] = [];
+      for (const product of cambioProducts) {
+        const allMovsForProduct = movByCodigo.get(product.codigo_custodia) || [];
+        const isEuro = product.produto_nome.toLowerCase().includes("euro");
+        const cotacaoRecords = isEuro ? euroRecords : dolarRecords;
+        const cambioRows = calcularCambioDiario({
+          dataInicio: product.data_inicio,
           dataCalculo: dataReferenciaISO,
+          cotacaoInicial: product.preco_unitario || 1,
+          calendario,
+          movimentacoes: allMovsForProduct,
+          historicoCotacao: cotacaoRecords,
+          dataResgateTotal: product.resgate_total,
         });
-        const lastCarteira = carteiraRows.length > 0 ? carteiraRows[carteiraRows.length - 1] : null;
-        const rentVal = lastCarteira ? lastCarteira.rentAcumuladaPct * 100 : 0;
-        setCarteiraRentabilidade(rentVal);
-        _cachedRentabilidade = rentVal;
+        cambioAdaptedRows.push(cambioRows.map(r => ({
+          data: r.data, diaUtil: r.diaUtil, liquido: r.valorBRL, liquido2: r.valorBRL,
+          aplicacoes: r.aplicacoesBRL, resgates: r.resgatesBRL, saldoCotas: r.quantidadeMoeda,
+          ganhoAcumulado: r.rentAcumuladaBRL, ganhoDiario: r.ganhoDiarioBRL,
+          rentabilidadeDiaria: r.rentDiariaPct, jurosPago: 0,
+          rentabilidadeAcumuladaPct: r.rentAcumuladaPct, rentAcumulada2: r.rentAcumuladaPct,
+        } as unknown as DailyRow)));
+      }
+
+      // RF carteira
+      let rfCartValor = 0, rfCartGanho = 0, rfCartRent = 0;
+      if (rfOnlyRows.length > 0) {
+        const rfCartRows = calcularCarteiraRendaFixa({ productRows: rfOnlyRows, calendario, dataInicio: minDate, dataCalculo: dataReferenciaISO });
+        const lastRF = rfCartRows.length > 0 ? rfCartRows[rfCartRows.length - 1] : null;
+        if (lastRF) { rfCartValor = lastRF.liquido; rfCartGanho = lastRF.rentAcumuladaRS; rfCartRent = lastRF.rentAcumuladaPct * 100; }
+      }
+
+      // Câmbio carteira
+      let cambioCartValor = 0, cambioCartGanho = 0, cambioCartRent = 0;
+      if (cambioAdaptedRows.length > 0) {
+        const cambioMinDate = cambioProducts.reduce((min, p) => p.data_inicio < min ? p.data_inicio : min, cambioProducts[0].data_inicio);
+        const cambioCartRows = calcularCarteiraRendaFixa({ productRows: cambioAdaptedRows, calendario, dataInicio: cambioMinDate, dataCalculo: dataReferenciaISO });
+        const lastCambio = cambioCartRows.length > 0 ? cambioCartRows[cambioCartRows.length - 1] : null;
+        if (lastCambio) { cambioCartValor = lastCambio.liquido; cambioCartGanho = lastCambio.rentAcumuladaRS; cambioCartRent = lastCambio.rentAcumuladaPct * 100; }
+      }
+
+      // Investimentos (total) carteira
+      const allForInv = [...rfOnlyRows, ...cambioAdaptedRows];
+      let invCartValor = 0, invCartGanho = 0, invCartRent = 0;
+      if (allForInv.length > 0) {
+        const invCartRows = calcularCarteiraRendaFixa({ productRows: allForInv, calendario, dataInicio: minDate, dataCalculo: dataReferenciaISO });
+        const lastInv = invCartRows.length > 0 ? invCartRows[invCartRows.length - 1] : null;
+        if (lastInv) { invCartValor = lastInv.liquido; invCartGanho = lastInv.rentAcumuladaRS; invCartRent = lastInv.rentAcumuladaPct * 100; }
+        setCarteiraRentabilidade(invCartRent);
+        _cachedRentabilidade = invCartRent;
       } else {
         setCarteiraRentabilidade(0);
         _cachedRentabilidade = 0;
       }
+
+      // Build carteiras summary
+      const computeCartStatus = (cartName: string) => {
+        const cart = (carteirasData || []).find((c: any) => c.nome_carteira === cartName);
+        if (!cart) return "Ativa";
+        if (cart.data_inicio && dataReferenciaISO < cart.data_inicio) return "Não Iniciada";
+        if (cart.resgate_total && dataReferenciaISO >= cart.resgate_total) return "Encerrada";
+        return "Ativa";
+      };
+
+      const summaryRows: CarteiraSummaryRow[] = [];
+      summaryRows.push({ status: computeCartStatus("Investimentos"), carteira: "Investimentos", valorAtualizado: invCartValor, ganhoFinanceiro: invCartGanho, rentabilidade: invCartRent });
+      if (rfOnlyRows.length > 0) summaryRows.push({ status: computeCartStatus("Renda Fixa"), carteira: "Renda Fixa", valorAtualizado: rfCartValor, ganhoFinanceiro: rfCartGanho, rentabilidade: rfCartRent });
+      if (cambioAdaptedRows.length > 0) summaryRows.push({ status: computeCartStatus("Câmbio"), carteira: "Moedas", valorAtualizado: cambioCartValor, ganhoFinanceiro: cambioCartGanho, rentabilidade: cambioCartRent });
+      setCarteiraSummary(summaryRows);
+      _cachedCarteiraSummary = summaryRows;
+
       console.log(`[PERF][PosConsolidada]   carteira TWR: ${(performance.now()-tCarteira).toFixed(0)}ms`);
 
       // Only update state if this is still the latest request
@@ -513,39 +589,53 @@ export default function PosicaoConsolidadaPage() {
     };
   }
 
+  const fmtDateLabel = (d: string | null) =>
+    d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">Posição Consolidada</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Posição Consolidada</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Período de Análise: De {fmtDateLabel(periodoInicio)} a {fmtDateLabel(dataReferenciaISO)}
+        </p>
+      </div>
 
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="relative max-w-xs flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar ativo..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      {/* Tabela por Carteiras */}
+      {!loading && carteiraSummary.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-foreground">Posição Consolidada por Carteiras</h2>
+          <CarteirasSummaryTable rows={carteiraSummary} />
         </div>
-        <div className="flex items-center gap-1 rounded-md border border-input p-0.5">
-          <Button
-            variant={statusFilter === "todos" ? "default" : "ghost"}
-            size="sm"
-            className="h-7 text-xs px-3"
-            onClick={() => setStatusFilter("todos")}
-          >
-            Todos
-          </Button>
-          <Button
-            variant={statusFilter === "custodia" ? "default" : "ghost"}
-            size="sm"
-            className="h-7 text-xs px-3"
-            onClick={() => setStatusFilter("custodia")}
-          >
-            Em custódia
-          </Button>
+      )}
+
+      {/* Análise por Ativo */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold text-foreground">Análise por Ativo</h2>
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="relative max-w-xs flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Buscar ativo..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          </div>
+          <div className="flex items-center gap-1 rounded-md border border-input p-0.5">
+            <Button
+              variant={statusFilter === "todos" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 text-xs px-3"
+              onClick={() => setStatusFilter("todos")}
+            >
+              Todos
+            </Button>
+            <Button
+              variant={statusFilter === "custodia" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 text-xs px-3"
+              onClick={() => setStatusFilter("custodia")}
+            >
+              Em custódia
+            </Button>
+          </div>
         </div>
-        <span className="text-sm text-muted-foreground">
-          Data de referência:{" "}
-          <span className="font-medium text-foreground">
-            {new Date(dataReferenciaISO + "T12:00:00").toLocaleDateString("pt-BR")}
-          </span>
-        </span>
       </div>
 
       {loading && <p className="text-sm text-muted-foreground">Carregando posição...</p>}
