@@ -213,10 +213,15 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
           setEngineRows(poupRows as unknown as DailyRow[]);
         }
       } else if (isMoedas) {
-        // Run Câmbio engine for Dólar/Euro
-        const productMovs = allMovs
-          .filter(m => m.codigo_custodia === product.codigo_custodia)
-          .map(m => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: m.valor, preco_unitario: m.preco_unitario != null ? Number(m.preco_unitario) : null, quantidade: m.quantidade != null ? Number(m.quantidade) : null }));
+        // Run Câmbio engine for Dólar/Euro — need preco_unitario and quantidade
+        const { data: moedaMovs } = await supabase
+          .from("movimentacoes")
+          .select("data, tipo_movimentacao, valor, preco_unitario, quantidade")
+          .eq("codigo_custodia", product.codigo_custodia)
+          .eq("user_id", user.id)
+          .order("data");
+
+        const productMovs = (moedaMovs || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor), preco_unitario: m.preco_unitario != null ? Number(m.preco_unitario) : null, quantidade: m.quantidade != null ? Number(m.quantidade) : null }));
 
         const cotacaoTable = getCotacaoTable(product.produto_nome);
         const { data: cotData } = await supabase
