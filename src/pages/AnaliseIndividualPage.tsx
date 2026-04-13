@@ -10,6 +10,7 @@ import {
 } from "@/lib/cdiCalculations";
 import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
 import { calcularPoupancaDiario, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
+import { calcularCambioDiario, getCotacaoTable, getCurrencyCode, type CambioDailyRow } from "@/lib/cambioEngine";
 import { fetchSelic, fetchTr, fetchPoupancaRendimento } from "@/lib/dataCache";
 import { fetchIpcaRecords } from "@/lib/ipcaHelper";
 import RentabilidadeDetailTable, { DetailRow } from "@/components/RentabilidadeDetailTable";
