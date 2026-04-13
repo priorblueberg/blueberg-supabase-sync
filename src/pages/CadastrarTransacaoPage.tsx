@@ -628,10 +628,11 @@ export default function CadastrarTransacaoPage() {
   const showPoupancaFields = isPoupanca && isAplicacao;
   const showDolarFields = isMoedas && isAplicacao;
 
-  // Fetch cotação when Moeda + date changes
+  // Fetch cotação PTAX when Moeda + date changes (reference only)
   useEffect(() => {
     if (!isMoedas || !isMoeda || !data) {
       setCotacaoMoeda(null);
+      setCotacaoNegociacao("");
       setQuantidadeMoeda(null);
       return;
     }
@@ -646,11 +647,18 @@ export default function CadastrarTransacaoPage() {
         const cot = row?.cotacao_venda ?? null;
         setCotacaoMoeda(cot);
         setCotacaoLoading(false);
-        if (cot && valor) {
-          const valorNum = parseCurrencyToNumber(valor);
-          if (valorNum > 0) setQuantidadeMoeda(valorNum / cot);
-          else setQuantidadeMoeda(null);
+        // Pre-fill editable field with PTAX reference
+        if (cot) {
+          setCotacaoNegociacao(cot.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }));
+          if (valor) {
+            const valorNum = parseCurrencyToNumber(valor);
+            if (valorNum > 0) setQuantidadeMoeda(valorNum / cot);
+            else setQuantidadeMoeda(null);
+          } else {
+            setQuantidadeMoeda(null);
+          }
         } else {
+          setCotacaoNegociacao("");
           setQuantidadeMoeda(null);
         }
       });
