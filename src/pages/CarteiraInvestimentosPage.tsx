@@ -767,45 +767,11 @@ export default function CarteiraInvestimentosPage() {
             <RentabilidadeDetailTable rows={detailRows} tituloLabel="Rentabilidade" />
           )}
 
-          {/* Posição Consolidada Geral */}
-          {unifiedProducts.length > 0 && (
-            <div className="space-y-1">
-              <h2 className="text-sm font-semibold text-foreground">Posição Consolidada</h2>
-              <div className="rounded-lg border bg-card">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[50px]">Status</TableHead>
-                      <TableHead className="min-w-[100px]">Categoria</TableHead>
-                      <TableHead className="min-w-[250px]">Ativo</TableHead>
-                      <TableHead className="min-w-[130px] text-right">Valor Atualizado</TableHead>
-                      <TableHead className="min-w-[130px] text-right">Ganho Financeiro</TableHead>
-                      <TableHead className="min-w-[110px] text-right">Rentabilidade</TableHead>
-                      <TableHead className="min-w-[150px]">Custodiante</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {unifiedProducts.map((row, i) => (
-                      <TableRow key={i}>
-                        <TableCell>
-                          <Badge
-                            variant={row.ativo ? "default" : "secondary"}
-                            className={row.ativo ? "bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] px-2 py-0.5" : "bg-muted text-muted-foreground text-[10px] px-2 py-0.5"}
-                          >
-                            {row.ativo ? "Em custódia" : "Liquidado"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{row.categoria}</TableCell>
-                        <TableCell className="font-medium text-foreground">{row.nome}</TableCell>
-                        <TableCell className="text-right text-foreground">{fmtBrl(row.valorAtualizado)}</TableCell>
-                        <TableCell className="text-right text-foreground">{fmtBrl(row.ganhoFinanceiro)}</TableCell>
-                        <TableCell className="text-right text-foreground">{row.rentabilidade.toFixed(2)}%</TableCell>
-                        <TableCell className="text-foreground">{row.custodiante}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+          {/* Posição por Carteiras (sem Investimentos) */}
+          {carteiraSummary.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-sm font-semibold text-foreground">Posição por Carteiras</h2>
+              <CarteirasSummaryTable rows={carteiraSummary} hideCarteiras={["Investimentos"]} />
             </div>
           )}
         </>
