@@ -501,7 +501,15 @@ export default function CadastrarTransacaoPage() {
     if (isRendaFixaEngine) {
       setCalculandoSaldo(true);
       try {
-        const isPosFixadoCDI = ((selectedCustodia.modalidade === "Pos Fixado" || selectedCustodia.modalidade === "Pós Fixado") && selectedCustodia.indexador === "CDI") || (selectedCustodia.modalidade === "Mista" && selectedCustodia.indexador === "CDI");
+        // Normalize CDI+ → Mista/CDI so the engine enters the correct branch
+        let engineModalidade = selectedCustodia.modalidade!;
+        let engineIndexador = selectedCustodia.indexador ?? null;
+        if ((engineModalidade === "Pós Fixado" || engineModalidade === "Pos Fixado") && engineIndexador === "CDI+") {
+          engineModalidade = "Mista";
+          engineIndexador = "CDI";
+        }
+
+        const isPosFixadoCDI = ((engineModalidade === "Pos Fixado" || engineModalidade === "Pós Fixado") && engineIndexador === "CDI") || (engineModalidade === "Mista" && engineIndexador === "CDI");
 
         const calQuery = supabase
           .from("calendario_dias_uteis")
@@ -549,14 +557,14 @@ export default function CadastrarTransacaoPage() {
           dataInicio: selectedCustodia.data_inicio,
           dataCalculo: dateISO,
           taxa: selectedCustodia.taxa!,
-          modalidade: selectedCustodia.modalidade!,
+          modalidade: engineModalidade,
           puInicial: selectedCustodia.preco_unitario!,
           calendario,
           movimentacoes,
           dataResgateTotal: custRes.data?.resgate_total ?? null,
           pagamento: selectedCustodia.pagamento,
           vencimento: selectedCustodia.vencimento,
-          indexador: selectedCustodia.indexador,
+          indexador: engineIndexador,
           cdiRecords,
         });
 
