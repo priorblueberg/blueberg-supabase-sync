@@ -258,6 +258,8 @@ export default function CadastrarTransacaoPage() {
   // Resgate moeda editable cotação
   const [resgateCotacaoRef, setResgateCotacaoRef] = useState<number | null>(null);
   const [resgateCotacaoNeg, setResgateCotacaoNeg] = useState("");
+  // "Valor em espécie" checkbox
+  const [valorEmEspecie, setValorEmEspecie] = useState(false);
 
   // Load categorias on mount — only Renda Fixa (Poupança is now a product within RF)
   useEffect(() => {
@@ -473,7 +475,7 @@ export default function CadastrarTransacaoPage() {
         setResgateCotacaoRef(cotRef);
         // Pre-fill editable resgate cotação
         if (cotRef) {
-          setResgateCotacaoNeg(cotRef.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }));
+          setResgateCotacaoNeg(formatCurrency(Math.round(cotRef * 100).toString()));
         } else {
           setResgateCotacaoNeg("");
         }
@@ -658,7 +660,7 @@ export default function CadastrarTransacaoPage() {
         setCotacaoLoading(false);
         // Pre-fill editable field with PTAX reference
         if (cot) {
-          setCotacaoNegociacao(cot.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }));
+          setCotacaoNegociacao(formatCurrency(Math.round(cot * 100).toString()));
           if (valor) {
             const valorNum = parseCurrencyToNumber(valor);
             if (valorNum > 0) setQuantidadeMoeda(valorNum / cot);
@@ -712,6 +714,7 @@ export default function CadastrarTransacaoPage() {
     setQuantidadeMoeda(null);
     setResgateCotacaoRef(null);
     setResgateCotacaoNeg("");
+    setValorEmEspecie(false);
     if (isEditing) {
       navigate("/movimentacoes");
     }
@@ -817,7 +820,9 @@ export default function CadastrarTransacaoPage() {
 
     if (isMoedas && isMoeda) {
       const cotNeg = parseCurrencyToNumber(cotacaoNegociacao);
-      requiredFields = { categoriaId, tipoMovimentacao, produtoId, valor, data, instituicaoId, cotacaoNegociacao };
+      const moedaRequired: Record<string, string> = { categoriaId, tipoMovimentacao, produtoId, valor, data, cotacaoNegociacao };
+      if (!valorEmEspecie) moedaRequired.instituicaoId = instituicaoId;
+      requiredFields = moedaRequired;
       if (cotNeg <= 0) {
         toast.error("Informe a cotação da negociação.");
         return;
@@ -871,7 +876,8 @@ export default function CadastrarTransacaoPage() {
 
       let nomeAtivo: string | null;
       if (isMoedas && isMoeda) {
-        nomeAtivo = `${produtoNome} ${instituicaoNome}`.trim();
+        const instLabel = valorEmEspecie ? "Valor em espécie" : instituicaoNome;
+        nomeAtivo = `${produtoNome} ${instLabel}`.trim();
       } else if (isPoupanca) {
         nomeAtivo = `Poupança ${instituicaoNome}`.trim();
       } else if (isRendaFixa) {
@@ -977,7 +983,7 @@ export default function CadastrarTransacaoPage() {
           produto_id: produtoId,
           valor: valorNum,
           preco_unitario: noFields ? (isMoedas ? puNum : null) : puNum,
-          instituicao_id: instituicaoId,
+          instituicao_id: (isMoedas && valorEmEspecie) ? null : instituicaoId,
           emissor_id: isPoupanca ? (() => {
             const instNome = instituicoes.find((i) => i.id === instituicaoId)?.nome || "";
             const matched = emissores.find((e) => e.nome === instNome);
@@ -1419,9 +1425,9 @@ export default function CadastrarTransacaoPage() {
                       <input
                         type="text"
                         value={cotacaoLoading ? "Buscando..." : cotacaoNegociacao}
-                        onChange={(e) => setCotacaoNegociacao(formatValorInicial(e.target.value))}
+                        onChange={(e) => { setCotacaoNegociacao(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("cotacaoNegociacao"); return n; }); }}
                         disabled={cotacaoLoading}
-                        placeholder="0,0000"
+                        placeholder="0,00"
                         className={`input-field pl-9 ${validationErrors.has("cotacaoNegociacao") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
                     </div>
@@ -1437,10 +1443,10 @@ export default function CadastrarTransacaoPage() {
                     )}
                   </Field>
 
-                  <Field label={`Quantidade (${isEuro ? "EUR" : "USD"})`}>
+                  <Field label={`Valor em ${isEuro ? "Euro" : "Dólar"}`}>
                     <input
                       type="text"
-                      value={quantidadeMoeda != null ? quantidadeMoeda.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : ""}
+                      value={quantidadeMoeda != null ? quantidadeMoeda.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ""}
                       disabled
                       placeholder="Calculado automaticamente"
                       className="input-field opacity-60"
@@ -1448,20 +1454,36 @@ export default function CadastrarTransacaoPage() {
                   </Field>
                 </div>
 
-                {/* Row 3: Instituição */}
+                {/* Row 3: Instituição + Valor em espécie */}
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="Corretora" required>
+                  <Field label="Instituição" required={!valorEmEspecie}>
                     <SearchableSelect
-                      value={instituicaoId}
+                      value={valorEmEspecie ? "" : instituicaoId}
                       onChange={(v) => { setInstituicaoId(v); setValidationErrors((prev) => { const n = new Set(prev); n.delete("instituicaoId"); return n; }); }}
-                      placeholder="Pesquisar corretora..."
-                      hasError={validationErrors.has("instituicaoId")}
+                      placeholder="Pesquisar instituição..."
+                      hasError={!valorEmEspecie && validationErrors.has("instituicaoId")}
+                      disabled={valorEmEspecie}
                       options={instituicoes.map((i) => ({
                         value: i.id,
                         label: i.nome,
                       }))}
                     />
                   </Field>
+                  <div className="flex items-end pb-1">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="valor-em-especie"
+                        checked={valorEmEspecie}
+                        onCheckedChange={(checked) => {
+                          setValorEmEspecie(!!checked);
+                          if (checked) setInstituicaoId("");
+                        }}
+                      />
+                      <label htmlFor="valor-em-especie" className="text-sm font-medium text-foreground cursor-pointer">
+                        Valor em espécie
+                      </label>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Actions */}
@@ -1584,8 +1606,8 @@ export default function CadastrarTransacaoPage() {
                             <input
                               type="text"
                               value={resgateCotacaoNeg}
-                              onChange={(e) => setResgateCotacaoNeg(formatValorInicial(e.target.value))}
-                              placeholder="0,0000"
+                              onChange={(e) => setResgateCotacaoNeg(formatCurrency(e.target.value))}
+                              placeholder="0,00"
                               className="input-field pl-9"
                             />
                           </div>
@@ -1595,13 +1617,13 @@ export default function CadastrarTransacaoPage() {
                             </p>
                           )}
                         </Field>
-                        <Field label="Quantidade resgatada">
+                        <Field label={`Valor resgatado em ${(() => { const pNome = produtos.find(p => p.id === selectedCustodia?.produto_id)?.nome || ""; return pNome.toLowerCase().includes("euro") ? "Euro" : "Dólar"; })()}`}>
                           <input
                             type="text"
                             value={(() => {
                               const cot = parseCurrencyToNumber(resgateCotacaoNeg);
                               const val = parseCurrencyToNumber(valor);
-                              if (cot > 0 && val > 0) return (val / cot).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+                              if (cot > 0 && val > 0) return (val / cot).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                               return "";
                             })()}
                             disabled
@@ -1654,7 +1676,7 @@ export default function CadastrarTransacaoPage() {
 
                     {/* Row 2: Instituição, Emissor (readonly) */}
                     <div className="grid grid-cols-2 gap-4">
-                      <Field label="Corretora">
+                      <Field label={categoriaSelecionada?.nome === "Moedas" ? "Instituição" : "Corretora"}>
                         <input
                           type="text"
                           value={getInstituicaoNome(instituicaoId)}
