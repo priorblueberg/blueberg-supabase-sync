@@ -876,7 +876,7 @@ export default function CadastrarTransacaoPage() {
 
       let nomeAtivo: string | null;
       if (isMoedas && isMoeda) {
-        const instLabel = valorEmEspecie ? "Valor em espécie" : instituicaoNome;
+        const instLabel = valorEmEspecie ? "Em Espécie" : instituicaoNome;
         nomeAtivo = `${produtoNome} ${instLabel}`.trim();
       } else if (isPoupanca) {
         nomeAtivo = `Poupança ${instituicaoNome}`.trim();
@@ -1474,13 +1474,14 @@ export default function CadastrarTransacaoPage() {
                       <Checkbox
                         id="valor-em-especie"
                         checked={valorEmEspecie}
+                        disabled={!!instituicaoId}
                         onCheckedChange={(checked) => {
                           setValorEmEspecie(!!checked);
                           if (checked) setInstituicaoId("");
                         }}
                       />
                       <label htmlFor="valor-em-especie" className="text-sm font-medium text-foreground cursor-pointer">
-                        Valor em espécie
+                        Em Espécie
                       </label>
                     </div>
                   </div>

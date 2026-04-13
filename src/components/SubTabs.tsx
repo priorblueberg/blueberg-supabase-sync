@@ -6,7 +6,7 @@ import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 
 const CATEGORY_TABS: { label: string; url: string; carteiraNome: string }[] = [
   { label: "Renda Fixa", url: "/carteira/renda-fixa", carteiraNome: "Renda Fixa" },
-  { label: "Moedas", url: "/carteira/cambio", carteiraNome: "Câmbio" },
+  { label: "Moedas", url: "/carteira/cambio", carteiraNome: "Moedas" },
 ];
 
 export function SubTabs() {

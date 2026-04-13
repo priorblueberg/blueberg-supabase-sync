@@ -364,7 +364,9 @@ export default function PosicaoConsolidadaPage() {
 
         const lastRow = cambioRows.length > 0 ? cambioRows[cambioRows.length - 1] : null;
         if (lastRow) {
-          const isEncerrado = lastRow.quantidadeMoeda < 0.000001;
+          const isEncerrado = product.resgate_total
+            ? product.resgate_total <= dataReferenciaISO
+            : lastRow.quantidadeMoeda < 0.000001;
           posicaoRows.push({
             nome: product.nome || product.produto_nome,
             valorAtualizado: lastRow.valorBRL,
