@@ -477,7 +477,7 @@ export default function CarteiraInvestimentosPage() {
 
         _invCachedVersion = appliedVersion;
         _invCached = {
-          consolidatedRows: consolidatedRows,
+          consolidatedRows: finalConsolidatedRows,
           rfCarteiraRows: rfResult,
           cambioCarteiraRows: cambioResult,
           cdiRecords: mergedCdi,
