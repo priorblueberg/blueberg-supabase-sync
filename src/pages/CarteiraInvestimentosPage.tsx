@@ -377,14 +377,30 @@ export default function CarteiraInvestimentosPage() {
 
         if (myVersion !== calcVersionRef.current) { setLoading(false); return; }
 
-        // 5. Consolidate
-        const consolidated = calcularCarteiraInvestimentos({
-          rfRows: rfResult,
-          cambioRows: cambioResult,
-          dataInicio: globalDataInicio,
-          dataCalculo: globalDataCalculo,
-        });
-        setConsolidatedRows(consolidated);
+        // 5. Consolidate — if only RF exists, reuse its result directly
+        if (!cambioResult || cambioResult.length === 0) {
+          // Map CarteiraRFRow[] → ConsolidatedDailyRow[] directly
+          const mapped: ConsolidatedDailyRow[] = rfResult.map(r => ({
+            data: r.data,
+            diaUtil: r.diaUtil,
+            patrimonio: r.liquido,
+            aplicacoes: 0,
+            resgates: 0,
+            ganhoDiarioRS: r.rentDiariaRS,
+            ganhoAcumuladoRS: r.rentAcumuladaRS,
+            rentDiariaPct: r.rentDiariaPct,
+            rentAcumuladaPct: r.rentAcumuladaPct,
+          }));
+          setConsolidatedRows(mapped);
+        } else {
+          const consolidated = calcularCarteiraInvestimentos({
+            rfRows: rfResult,
+            cambioRows: cambioResult,
+            dataInicio: globalDataInicio,
+            dataCalculo: globalDataCalculo,
+          });
+          setConsolidatedRows(consolidated);
+        }
 
         // 6. Build unified product list
         const products: UnifiedProduct[] = [];
@@ -459,7 +475,7 @@ export default function CarteiraInvestimentosPage() {
 
         _invCachedVersion = appliedVersion;
         _invCached = {
-          consolidatedRows: consolidated,
+          consolidatedRows: consolidatedRows,
           rfCarteiraRows: rfResult,
           cambioCarteiraRows: cambioResult,
           cdiRecords: mergedCdi,
