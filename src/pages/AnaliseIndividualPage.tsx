@@ -10,6 +10,7 @@ import {
 } from "@/lib/cdiCalculations";
 import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
 import { calcularPoupancaDiario, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
+import { calcularCambioDiario, getCotacaoTable, getCurrencyCode, type CambioDailyRow } from "@/lib/cambioEngine";
 import { fetchSelic, fetchTr, fetchPoupancaRendimento } from "@/lib/dataCache";
 import { fetchIpcaRecords } from "@/lib/ipcaHelper";
 import RentabilidadeDetailTable, { DetailRow } from "@/components/RentabilidadeDetailTable";
@@ -83,7 +84,8 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
     product.modalidade === "Mista"
   );
   const isPoupanca = product.modalidade === "Poupança";
-  const hasEngine = isPrefixado || isPoupanca;
+  const isMoedas = product.categoria_nome === "Moedas";
+  const hasEngine = isPrefixado || isPoupanca || isMoedas;
 
   // Compute max end date once (does not change with dataReferencia)
   const maxEndDate = useMemo(() => {
@@ -210,11 +212,63 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
           });
           setEngineRows(poupRows as unknown as DailyRow[]);
         }
+      } else if (isMoedas) {
+        // Run Câmbio engine for Dólar/Euro — need preco_unitario and quantidade
+        const { data: moedaMovs } = await supabase
+          .from("movimentacoes")
+          .select("data, tipo_movimentacao, valor, preco_unitario, quantidade")
+          .eq("codigo_custodia", product.codigo_custodia)
+          .eq("user_id", user.id)
+          .order("data");
+
+        const productMovs = (moedaMovs || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor), preco_unitario: m.preco_unitario != null ? Number(m.preco_unitario) : null, quantidade: m.quantidade != null ? Number(m.quantidade) : null }));
+
+        const cotacaoTable = getCotacaoTable(product.produto_nome);
+        const { data: cotData } = await supabase
+          .from(cotacaoTable)
+          .select("data, cotacao_venda")
+          .gte("data", getDateMinus(product.data_inicio, 5))
+          .lte("data", dataReferenciaISO)
+          .order("data");
+
+        if (currentVersion !== calcVersionRef.current) return;
+
+        const cotacaoRecords = (cotData || []).map((d: any) => ({ data: d.data, cotacao_venda: Number(d.cotacao_venda) }));
+
+        const cambioRows = calcularCambioDiario({
+          dataInicio: product.data_inicio,
+          dataCalculo: dataReferenciaISO,
+          cotacaoInicial: product.preco_unitario || 1,
+          calendario: calendario.map(d => ({ data: d.data, dia_util: d.dia_util })),
+          movimentacoes: productMovs,
+          historicoCotacao: cotacaoRecords,
+          dataResgateTotal: product.resgate_total,
+        });
+
+        // Adapt CambioDailyRow to DailyRow shape
+        const adaptedRows: DailyRow[] = cambioRows.map(r => ({
+          data: r.data,
+          diaUtil: r.diaUtil,
+          liquido: r.valorBRL,
+          aplicacoes: r.aplicacoesBRL,
+          resgates: r.resgatesBRL,
+          saldoCotas: r.quantidadeMoeda,
+          ganhoAcumulado: r.rentAcumuladaBRL,
+          ganhoDiario: r.ganhoDiarioBRL,
+          rentabilidadeDiaria: r.rentDiariaPct,
+          rentabilidadeAcumuladaPct: r.rentAcumuladaPct,
+          rentAcumulada2: r.rentAcumuladaPct,
+          valorCota: r.cotacao,
+          valorCota2: r.cotacao,
+          jurosPago: 0,
+        } as unknown as DailyRow));
+
+        setEngineRows(adaptedRows);
       }
 
       setLoading(false);
     })();
-  }, [product, appliedVersion, user, dataReferenciaISO, isPrefixado, isPoupanca]);
+  }, [product, appliedVersion, user, dataReferenciaISO, isPrefixado, isPoupanca, isMoedas]);
 
   // Chart data: merge both series
   const chartData = useMemo(() => {

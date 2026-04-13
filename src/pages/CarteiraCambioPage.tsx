@@ -595,7 +595,10 @@ export default function CarteiraCambioPage() {
           <RentabilidadeDetailTable rows={detailRows} tituloLabel="Rentabilidade" />
 
           {/* Posição Consolidada */}
-          {productList.length > 0 && (
+          {productList.length > 0 && (() => {
+            const totalValor = productList.reduce((s, r) => s + r.valorAtualizado, 0);
+            const totalGanho = productList.reduce((s, r) => s + r.ganhoFinanceiro, 0);
+            return (
             <div className="space-y-1">
               <h2 className="text-sm font-semibold text-foreground">Posição Consolidada</h2>
               <div className="rounded-lg border bg-card">
@@ -608,10 +611,13 @@ export default function CarteiraCambioPage() {
                       <TableHead className="min-w-[130px]">Ganho Financeiro</TableHead>
                       <TableHead className="min-w-[110px]">Rentabilidade</TableHead>
                       <TableHead className="min-w-[150px]">Custodiante</TableHead>
+                      <TableHead className="min-w-[110px] text-right">% do Portfólio</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {productList.map((row, i) => (
+                    {productList.map((row, i) => {
+                      const pctPortfolio = totalValor > 0 ? (row.valorAtualizado / totalValor) * 100 : 0;
+                      return (
                       <TableRow key={i} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedProduct(row.product)}>
                         <TableCell>
                           <Badge
@@ -626,13 +632,25 @@ export default function CarteiraCambioPage() {
                         <TableCell className="text-foreground">{fmtBrl(row.ganhoFinanceiro)}</TableCell>
                         <TableCell className="text-foreground">{row.rentabilidade.toFixed(2)}%</TableCell>
                         <TableCell className="text-foreground">{row.custodiante}</TableCell>
+                        <TableCell className="text-right font-medium text-foreground">{pctPortfolio.toFixed(2)}%</TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
+                    <TableRow className="bg-muted/50 font-semibold">
+                      <TableCell />
+                      <TableCell>Total</TableCell>
+                      <TableCell>{fmtBrl(totalValor)}</TableCell>
+                      <TableCell>{fmtBrl(totalGanho)}</TableCell>
+                      <TableCell />
+                      <TableCell />
+                      <TableCell className="text-right">100,00%</TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               </div>
             </div>
-          )}
+            );
+          })()}
         </>
       )}
     </div>

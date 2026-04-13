@@ -108,6 +108,9 @@ export default function BoletaCustodiaDialog({
   const [fecharPosicao, setFecharPosicao] = useState(false);
   const [dateError, setDateError] = useState<string | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  // Moedas: cotação da negociação editável
+  const [cotacaoNeg, setCotacaoNeg] = useState("");
+  const [cotacaoRef, setCotacaoRef] = useState<number | null>(null);
 
   const fmtReadonly = (v: string | null | undefined) => v ?? "—";
   const fmtTaxa = (v: number | null) =>
@@ -216,7 +219,14 @@ export default function BoletaCustodiaDialog({
           .maybeSingle();
 
         const cotacao = cotacaoDia?.cotacao_venda ? Number(cotacaoDia.cotacao_venda) : null;
-        if (cotacao) setValorCotaDia(cotacao);
+        if (cotacao) {
+          setValorCotaDia(cotacao);
+          setCotacaoRef(cotacao);
+          setCotacaoNeg(formatCurrency(Math.round(cotacao * 100).toString()));
+        } else {
+          setCotacaoRef(null);
+          setCotacaoNeg("");
+        }
 
         if (tipo === "Resgate") {
           const { data: movs } = await supabase
@@ -236,6 +246,8 @@ export default function BoletaCustodiaDialog({
         }
       } catch {
         setValorCotaDia(null);
+        setCotacaoRef(null);
+        setCotacaoNeg("");
         setSaldoDisponivel(null);
       } finally {
         setLoadingCota(false);
@@ -455,8 +467,9 @@ export default function BoletaCustodiaDialog({
       const tipoMovimentacao = fecharPosicao ? "Resgate Total" : tipo;
       const isPoupancaProduct = row.modalidade === "Poupança";
       const isMoedasProd = row.categoria === "Moedas";
-      const pu = (isPoupancaProduct) ? null : (valorCotaDia ?? row.preco_unitario);
-      const quantidade = (isPoupancaProduct) ? null : (pu && pu > 0 ? valorNum / pu : null);
+      const cotNegNum = isMoedasProd ? parseCurrencyToNumber(cotacaoNeg) : 0;
+      const pu = isMoedasProd ? (cotNegNum > 0 ? cotNegNum : (valorCotaDia ?? row.preco_unitario)) : (isPoupancaProduct ? null : (valorCotaDia ?? row.preco_unitario));
+      const quantidade = isPoupancaProduct ? null : (pu && pu > 0 ? valorNum / pu : null);
 
       let valorExtrato: string;
       if (!isPoupancaProduct && pu && quantidade) {
@@ -518,11 +531,14 @@ export default function BoletaCustodiaDialog({
     setFecharPosicao(false);
     setDateError(null);
     setCalendarOpen(false);
+    setCotacaoNeg("");
+    setCotacaoRef(null);
     onClose();
   };
 
   const isPoupanca = row.modalidade === "Poupança";
-  const isDolar = row.produto === "Dólar" || row.categoria === "Moedas";
+  const isMoedasProduct = row.categoria === "Moedas";
+  const isDolar = row.produto === "Dólar" || isMoedasProduct;
   const hideFields = isPoupanca || isDolar;
   const readonlyFields = [
     { label: "Nome", value: fmtReadonly(row.nome) },
@@ -590,6 +606,30 @@ export default function BoletaCustodiaDialog({
 
         {tipo === "Aplicação" && date && !dateError && loadingCota && (
           <p className="text-sm text-muted-foreground">Calculando...</p>
+        )}
+
+        {/* Moedas: Cotação da Negociação editável */}
+        {isMoedasProduct && date && !dateError && !loadingCota && (
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-foreground">
+              Cotação da Negociação (R$/{row.produto?.toLowerCase().includes("euro") ? "EUR" : "USD"}) *
+            </label>
+            <Input
+              placeholder="0,00"
+              value={cotacaoNeg}
+              onChange={(e) => setCotacaoNeg(formatCurrency(e.target.value))}
+            />
+            {cotacaoRef != null && (
+              <p className="text-[11px] text-muted-foreground">
+                Cotação PTAX de referência: R$ {cotacaoRef.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+              </p>
+            )}
+            {!cotacaoRef && (
+              <p className="text-[11px] text-amber-500">
+                PTAX não encontrada para esta data. Informe a cotação manualmente.
+              </p>
+            )}
+          </div>
         )}
 
         {/* Saldo disponível para resgate */}
