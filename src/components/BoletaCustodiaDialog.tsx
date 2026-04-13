@@ -531,6 +531,8 @@ export default function BoletaCustodiaDialog({
     setFecharPosicao(false);
     setDateError(null);
     setCalendarOpen(false);
+    setCotacaoNeg("");
+    setCotacaoRef(null);
     onClose();
   };
 
