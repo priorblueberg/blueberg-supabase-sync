@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import BoletaCustodiaDialog, { type CustodiaRowForBoleta } from "@/components/BoletaCustodiaDialog";
 import PosicaoDetalheDialog, { type PosicaoDetalheData } from "@/components/PosicaoDetalheDialog";
+import CarteirasSummaryTable, { type CarteiraSummaryRow } from "@/components/CarteirasSummaryTable";
 
 interface CustodiaProduct {
   id: string;
