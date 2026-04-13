@@ -589,39 +589,53 @@ export default function PosicaoConsolidadaPage() {
     };
   }
 
+  const fmtDateLabel = (d: string | null) =>
+    d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "—";
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">Posição Consolidada</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Posição Consolidada</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Período de Análise: De {fmtDateLabel(periodoInicio)} a {fmtDateLabel(dataReferenciaISO)}
+        </p>
+      </div>
 
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="relative max-w-xs flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar ativo..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      {/* Tabela por Carteiras */}
+      {!loading && carteiraSummary.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-foreground">Posição Consolidada por Carteiras</h2>
+          <CarteirasSummaryTable rows={carteiraSummary} />
         </div>
-        <div className="flex items-center gap-1 rounded-md border border-input p-0.5">
-          <Button
-            variant={statusFilter === "todos" ? "default" : "ghost"}
-            size="sm"
-            className="h-7 text-xs px-3"
-            onClick={() => setStatusFilter("todos")}
-          >
-            Todos
-          </Button>
-          <Button
-            variant={statusFilter === "custodia" ? "default" : "ghost"}
-            size="sm"
-            className="h-7 text-xs px-3"
-            onClick={() => setStatusFilter("custodia")}
-          >
-            Em custódia
-          </Button>
+      )}
+
+      {/* Análise por Ativo */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold text-foreground">Análise por Ativo</h2>
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="relative max-w-xs flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Buscar ativo..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          </div>
+          <div className="flex items-center gap-1 rounded-md border border-input p-0.5">
+            <Button
+              variant={statusFilter === "todos" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 text-xs px-3"
+              onClick={() => setStatusFilter("todos")}
+            >
+              Todos
+            </Button>
+            <Button
+              variant={statusFilter === "custodia" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 text-xs px-3"
+              onClick={() => setStatusFilter("custodia")}
+            >
+              Em custódia
+            </Button>
+          </div>
         </div>
-        <span className="text-sm text-muted-foreground">
-          Data de referência:{" "}
-          <span className="font-medium text-foreground">
-            {new Date(dataReferenciaISO + "T12:00:00").toLocaleDateString("pt-BR")}
-          </span>
-        </span>
       </div>
 
       {loading && <p className="text-sm text-muted-foreground">Carregando posição...</p>}
