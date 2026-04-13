@@ -161,7 +161,8 @@ export default function CarteiraInvestimentosPage() {
         }
 
         const globalDataInicio = allDates.sort()[0];
-        const globalDataCalculo = dataReferenciaISO;
+        const invCart = (carteirasData || []).find((c: any) => c.nome_carteira === "Investimentos");
+        const globalDataCalculo = invCart?.data_calculo || dataReferenciaISO;
         setDataInicio(globalDataInicio);
         setDataCalculo(globalDataCalculo);
 
