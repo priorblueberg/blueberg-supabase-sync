@@ -467,8 +467,9 @@ export default function BoletaCustodiaDialog({
       const tipoMovimentacao = fecharPosicao ? "Resgate Total" : tipo;
       const isPoupancaProduct = row.modalidade === "Poupança";
       const isMoedasProd = row.categoria === "Moedas";
-      const pu = (isPoupancaProduct) ? null : (valorCotaDia ?? row.preco_unitario);
-      const quantidade = (isPoupancaProduct) ? null : (pu && pu > 0 ? valorNum / pu : null);
+      const cotNegNum = isMoedasProd ? parseCurrencyToNumber(cotacaoNeg) : 0;
+      const pu = isMoedasProd ? (cotNegNum > 0 ? cotNegNum : (valorCotaDia ?? row.preco_unitario)) : (isPoupancaProduct ? null : (valorCotaDia ?? row.preco_unitario));
+      const quantidade = isPoupancaProduct ? null : (pu && pu > 0 ? valorNum / pu : null);
 
       let valorExtrato: string;
       if (!isPoupancaProduct && pu && quantidade) {
