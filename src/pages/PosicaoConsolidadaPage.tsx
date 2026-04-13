@@ -83,6 +83,8 @@ export default function PosicaoConsolidadaPage() {
   const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const [rows, setRows] = useState<PosicaoRow[]>(_cachedRows);
   const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(_cachedRentabilidade);
+  const [carteiraSummary, setCarteiraSummary] = useState<CarteiraSummaryRow[]>(_cachedCarteiraSummary);
+  const [periodoInicio, setPeriodoInicio] = useState<string | null>(_cachedPeriodoInicio);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [rentSort, setRentSort] = useState<"none" | "asc" | "desc">("none");
