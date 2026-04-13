@@ -607,6 +607,30 @@ export default function BoletaCustodiaDialog({
           <p className="text-sm text-muted-foreground">Calculando...</p>
         )}
 
+        {/* Moedas: Cotação da Negociação editável */}
+        {isMoedasProduct && date && !dateError && !loadingCota && (
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-foreground">
+              Cotação da Negociação (R$/{row.produto?.toLowerCase().includes("euro") ? "EUR" : "USD"}) *
+            </label>
+            <Input
+              placeholder="0,00"
+              value={cotacaoNeg}
+              onChange={(e) => setCotacaoNeg(formatCurrency(e.target.value))}
+            />
+            {cotacaoRef != null && (
+              <p className="text-[11px] text-muted-foreground">
+                Cotação PTAX de referência: R$ {cotacaoRef.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+              </p>
+            )}
+            {!cotacaoRef && (
+              <p className="text-[11px] text-amber-500">
+                PTAX não encontrada para esta data. Informe a cotação manualmente.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Saldo disponível para resgate */}
         {tipo === "Resgate" && date && !dateError && (
           <div className="text-sm">
