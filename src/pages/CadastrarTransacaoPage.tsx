@@ -883,7 +883,7 @@ export default function CadastrarTransacaoPage() {
       } else if (isPoupanca) {
         nomeAtivo = `Poupança ${instituicaoNome}`.trim();
       } else if (isRendaFixa) {
-        nomeAtivo = buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador);
+        nomeAtivo = buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador, pagamento);
       } else {
         nomeAtivo = null;
       }
