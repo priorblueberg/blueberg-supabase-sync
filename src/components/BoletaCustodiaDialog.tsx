@@ -537,7 +537,8 @@ export default function BoletaCustodiaDialog({
   };
 
   const isPoupanca = row.modalidade === "Poupança";
-  const isDolar = row.produto === "Dólar" || row.categoria === "Moedas";
+  const isMoedasProduct = row.categoria === "Moedas";
+  const isDolar = row.produto === "Dólar" || isMoedasProduct;
   const hideFields = isPoupanca || isDolar;
   const readonlyFields = [
     { label: "Nome", value: fmtReadonly(row.nome) },
