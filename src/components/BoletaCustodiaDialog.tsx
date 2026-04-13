@@ -108,6 +108,9 @@ export default function BoletaCustodiaDialog({
   const [fecharPosicao, setFecharPosicao] = useState(false);
   const [dateError, setDateError] = useState<string | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  // Moedas: cotação da negociação editável
+  const [cotacaoNeg, setCotacaoNeg] = useState("");
+  const [cotacaoRef, setCotacaoRef] = useState<number | null>(null);
 
   const fmtReadonly = (v: string | null | undefined) => v ?? "—";
   const fmtTaxa = (v: number | null) =>
