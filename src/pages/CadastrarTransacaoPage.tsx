@@ -161,35 +161,37 @@ function buildNomeAtivo(
   modalidade: string,
   taxa: string,
   vencimento: string,
-  indexador: string
+  indexador: string,
+  pagamento?: string
 ): string {
   const prod = sigla(produtoNome);
   const taxaFormatted = taxa ? `${taxa.replace(".", ",")}%` : "";
   const vencFormatted = vencimento
     ? new Date(vencimento + "T00:00:00").toLocaleDateString("pt-BR")
     : "";
+  // Append pagamento suffix when it's periodic (not "No Vencimento")
+  const pagSuffix = pagamento && pagamento !== "No Vencimento" ? `[${pagamento}]` : "";
 
+  let base: string;
   if (modalidade === "Prefixado") {
-    return [prod, emissorNome, modalidade, taxaFormatted ? `${taxaFormatted} a.a.` : "", vencFormatted ? `- ${vencFormatted}` : ""]
+    base = [prod, emissorNome, modalidade, taxaFormatted ? `${taxaFormatted} a.a.` : "", vencFormatted ? `- ${vencFormatted}` : ""]
+      .filter(Boolean)
+      .join(" ");
+  } else if (indexador === "IPCA") {
+    base = [prod, emissorNome, "IPCA", taxaFormatted ? `+ ${taxaFormatted} a.a.` : "", vencFormatted ? `- ${vencFormatted}` : ""]
+      .filter(Boolean)
+      .join(" ");
+  } else if (indexador === "CDI") {
+    base = [prod, emissorNome, modalidade, taxaFormatted, "do CDI", vencFormatted ? `- ${vencFormatted}` : ""]
+      .filter(Boolean)
+      .join(" ");
+  } else {
+    base = [prod, emissorNome, modalidade, indexador, taxaFormatted, vencFormatted ? `- ${vencFormatted}` : ""]
       .filter(Boolean)
       .join(" ");
   }
 
-  if (indexador === "IPCA") {
-    return [prod, emissorNome, "IPCA", taxaFormatted ? `+ ${taxaFormatted} a.a.` : "", vencFormatted ? `- ${vencFormatted}` : ""]
-      .filter(Boolean)
-      .join(" ");
-  }
-
-  if (indexador === "CDI") {
-    return [prod, emissorNome, modalidade, taxaFormatted, "do CDI", vencFormatted ? `- ${vencFormatted}` : ""]
-      .filter(Boolean)
-      .join(" ");
-  }
-
-  return [prod, emissorNome, modalidade, indexador, taxaFormatted, vencFormatted ? `- ${vencFormatted}` : ""]
-    .filter(Boolean)
-    .join(" ");
+  return pagSuffix ? `${base} ${pagSuffix}` : base;
 }
 
 
@@ -881,7 +883,7 @@ export default function CadastrarTransacaoPage() {
       } else if (isPoupanca) {
         nomeAtivo = `Poupança ${instituicaoNome}`.trim();
       } else if (isRendaFixa) {
-        nomeAtivo = buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador);
+        nomeAtivo = buildNomeAtivo(produtoNome, emissorNome, modalidade, taxa, vencimento, indexador, pagamento);
       } else {
         nomeAtivo = null;
       }
