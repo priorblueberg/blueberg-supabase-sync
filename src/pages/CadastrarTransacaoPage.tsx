@@ -1568,6 +1568,45 @@ export default function CadastrarTransacaoPage() {
                       </Field>
                     </div>
 
+                    {/* Moedas resgate: editable cotação */}
+                    {categoriaSelecionada?.nome === "Moedas" && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Cotação da Negociação (R$)" required>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                              R$
+                            </span>
+                            <input
+                              type="text"
+                              value={resgateCotacaoNeg}
+                              onChange={(e) => setResgateCotacaoNeg(formatValorInicial(e.target.value))}
+                              placeholder="0,0000"
+                              className="input-field pl-9"
+                            />
+                          </div>
+                          {resgateCotacaoRef != null && (
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                              Cotação PTAX de referência: R$ {resgateCotacaoRef.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                            </p>
+                          )}
+                        </Field>
+                        <Field label="Quantidade resgatada">
+                          <input
+                            type="text"
+                            value={(() => {
+                              const cot = parseCurrencyToNumber(resgateCotacaoNeg);
+                              const val = parseCurrencyToNumber(valor);
+                              if (cot > 0 && val > 0) return (val / cot).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+                              return "";
+                            })()}
+                            disabled
+                            placeholder="Calculado automaticamente"
+                            className="input-field opacity-60"
+                          />
+                        </Field>
+                      </div>
+                    )
+
                     {/* Saldo disponível info */}
                     <div className="rounded-md border border-border bg-muted/30 px-4 py-3">
                       <p className="text-xs text-muted-foreground">
