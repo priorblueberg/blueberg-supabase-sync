@@ -251,9 +251,13 @@ export default function CadastrarTransacaoPage() {
   const selectedCustodia = custodiaItems.find((c) => c.id === selectedCustodiaId);
 
   // Moeda-specific state (Dólar or Euro)
-  const [cotacaoMoeda, setCotacaoMoeda] = useState<number | null>(null);
+  const [cotacaoMoeda, setCotacaoMoeda] = useState<number | null>(null); // PTAX reference
+  const [cotacaoNegociacao, setCotacaoNegociacao] = useState(""); // user-editable
   const [cotacaoLoading, setCotacaoLoading] = useState(false);
   const [quantidadeMoeda, setQuantidadeMoeda] = useState<number | null>(null);
+  // Resgate moeda editable cotação
+  const [resgateCotacaoRef, setResgateCotacaoRef] = useState<number | null>(null);
+  const [resgateCotacaoNeg, setResgateCotacaoNeg] = useState("");
 
   // Load categorias on mount — only Renda Fixa (Poupança is now a product within RF)
   useEffect(() => {
@@ -465,8 +469,17 @@ export default function CadastrarTransacaoPage() {
           .eq("data", dateISO)
           .maybeSingle();
 
-        if (cotRow && qtyMoeda > 0) {
-          setSaldoDisponivel(qtyMoeda * cotRow.cotacao_venda);
+        const cotRef = cotRow?.cotacao_venda ?? null;
+        setResgateCotacaoRef(cotRef);
+        // Pre-fill editable resgate cotação
+        if (cotRef) {
+          setResgateCotacaoNeg(cotRef.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }));
+        } else {
+          setResgateCotacaoNeg("");
+        }
+
+        if (cotRef && qtyMoeda > 0) {
+          setSaldoDisponivel(qtyMoeda * cotRef);
         } else {
           setSaldoDisponivel(null);
         }
@@ -624,10 +637,11 @@ export default function CadastrarTransacaoPage() {
   const showPoupancaFields = isPoupanca && isAplicacao;
   const showDolarFields = isMoedas && isAplicacao;
 
-  // Fetch cotação when Moeda + date changes
+  // Fetch cotação PTAX when Moeda + date changes (reference only)
   useEffect(() => {
     if (!isMoedas || !isMoeda || !data) {
       setCotacaoMoeda(null);
+      setCotacaoNegociacao("");
       setQuantidadeMoeda(null);
       return;
     }
@@ -642,26 +656,35 @@ export default function CadastrarTransacaoPage() {
         const cot = row?.cotacao_venda ?? null;
         setCotacaoMoeda(cot);
         setCotacaoLoading(false);
-        if (cot && valor) {
-          const valorNum = parseCurrencyToNumber(valor);
-          if (valorNum > 0) setQuantidadeMoeda(valorNum / cot);
-          else setQuantidadeMoeda(null);
+        // Pre-fill editable field with PTAX reference
+        if (cot) {
+          setCotacaoNegociacao(cot.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }));
+          if (valor) {
+            const valorNum = parseCurrencyToNumber(valor);
+            if (valorNum > 0) setQuantidadeMoeda(valorNum / cot);
+            else setQuantidadeMoeda(null);
+          } else {
+            setQuantidadeMoeda(null);
+          }
         } else {
+          setCotacaoNegociacao("");
           setQuantidadeMoeda(null);
         }
       });
   }, [data, isMoedas, isMoeda, produtoId]);
 
-  // Recalc quantidade when valor changes (Dólar)
+  // Recalc quantidade when valor or cotacaoNegociacao changes
   useEffect(() => {
-    if (!isMoedas || !isMoeda || !cotacaoMoeda) {
+    if (!isMoedas || !isMoeda) {
       setQuantidadeMoeda(null);
       return;
     }
+    const cotNeg = parseCurrencyToNumber(cotacaoNegociacao);
+    if (cotNeg <= 0) { setQuantidadeMoeda(null); return; }
     const valorNum = parseCurrencyToNumber(valor);
-    if (valorNum > 0) setQuantidadeMoeda(valorNum / cotacaoMoeda);
+    if (valorNum > 0) setQuantidadeMoeda(valorNum / cotNeg);
     else setQuantidadeMoeda(null);
-  }, [valor, cotacaoMoeda, isMoedas, isMoeda]);
+  }, [valor, cotacaoNegociacao, isMoedas, isMoeda]);
 
   const resetForm = () => {
     setCategoriaId("");
@@ -684,6 +707,11 @@ export default function CadastrarTransacaoPage() {
     setResgateDateError(null);
     setFecharPosicao(false);
     setResgateCalendarOpen(false);
+    setCotacaoNegociacao("");
+    setCotacaoMoeda(null);
+    setQuantidadeMoeda(null);
+    setResgateCotacaoRef(null);
+    setResgateCotacaoNeg("");
     if (isEditing) {
       navigate("/movimentacoes");
     }
@@ -723,22 +751,15 @@ export default function CadastrarTransacaoPage() {
         const fmtBR = (v: number) =>
           v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        // For Moedas resgate: calculate currency quantity from BRL value
+        // For Moedas resgate: use user-editable cotação
         const isMoedasResgate = categoriaSelecionada?.nome === "Moedas";
         let resgateQty: number | null = null;
         let resgatePU: number | null = null;
         if (isMoedasResgate) {
-          // Determine which cotação table to use based on the product
-          const resgateProdutoNome = produtos.find(p => p.id === selectedCustodia.produto_id)?.nome || "";
-          const cotacaoTable = resgateProdutoNome.toLowerCase().includes("euro") ? "historico_euro" : "historico_dolar";
-          const { data: cotRow } = await supabase
-            .from(cotacaoTable)
-            .select("cotacao_venda")
-            .eq("data", data)
-            .maybeSingle();
-          if (cotRow) {
-            resgatePU = cotRow.cotacao_venda;
-            resgateQty = valorNum / cotRow.cotacao_venda;
+          const cotNeg = parseCurrencyToNumber(resgateCotacaoNeg);
+          if (cotNeg > 0) {
+            resgatePU = cotNeg;
+            resgateQty = valorNum / cotNeg;
           }
         }
 
@@ -795,9 +816,10 @@ export default function CadastrarTransacaoPage() {
     let requiredFields: Record<string, string>;
 
     if (isMoedas && isMoeda) {
-      requiredFields = { categoriaId, tipoMovimentacao, produtoId, valor, data, instituicaoId };
-      if (!cotacaoMoeda) {
-        toast.error("Cotação do dólar não encontrada para a data selecionada.");
+      const cotNeg = parseCurrencyToNumber(cotacaoNegociacao);
+      requiredFields = { categoriaId, tipoMovimentacao, produtoId, valor, data, instituicaoId, cotacaoNegociacao };
+      if (cotNeg <= 0) {
+        toast.error("Informe a cotação da negociação.");
         return;
       }
     } else if (isPoupanca) {
@@ -864,7 +886,7 @@ export default function CadastrarTransacaoPage() {
       let quantidade: number | null;
 
       if (isMoedas && isMoeda) {
-        puNum = cotacaoMoeda!;
+        puNum = parseCurrencyToNumber(cotacaoNegociacao);
         taxaNum = 0;
         quantidade = quantidadeMoeda;
       } else if (isPoupanca) {
@@ -1389,18 +1411,30 @@ export default function CadastrarTransacaoPage() {
 
                 {/* Row 2: Cotação, Quantidade */}
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label={`Cotação ${produtoSelecionado?.nome || "da Moeda"} (PTAX)`}>
+                  <Field label={`Cotação da Negociação (R$/${isEuro ? "EUR" : "USD"})`} required>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                         R$
                       </span>
                       <input
                         type="text"
-                        value={cotacaoLoading ? "Buscando..." : cotacaoMoeda != null ? cotacaoMoeda.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : (data ? "Não encontrada" : "")}
-                        disabled
-                        className="input-field pl-9 opacity-60"
+                        value={cotacaoLoading ? "Buscando..." : cotacaoNegociacao}
+                        onChange={(e) => setCotacaoNegociacao(formatValorInicial(e.target.value))}
+                        disabled={cotacaoLoading}
+                        placeholder="0,0000"
+                        className={`input-field pl-9 ${validationErrors.has("cotacaoNegociacao") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
                     </div>
+                    {cotacaoMoeda != null && (
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Cotação PTAX de referência: R$ {cotacaoMoeda.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                      </p>
+                    )}
+                    {!cotacaoLoading && data && cotacaoMoeda == null && (
+                      <p className="text-[11px] text-amber-500 mt-1">
+                        PTAX não encontrada para esta data. Informe a cotação manualmente.
+                      </p>
+                    )}
                   </Field>
 
                   <Field label={`Quantidade (${isEuro ? "EUR" : "USD"})`}>
@@ -1442,7 +1476,7 @@ export default function CadastrarTransacaoPage() {
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={submitting || !cotacaoMoeda}
+                    disabled={submitting || !cotacaoNegociacao}
                     className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-[hsl(145,63%,32%)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[hsl(145,63%,28%)] transition-colors disabled:opacity-50"
                   >
                     <PlusCircle size={16} />
@@ -1538,6 +1572,45 @@ export default function CadastrarTransacaoPage() {
                         />
                       </Field>
                     </div>
+
+                    {/* Moedas resgate: editable cotação */}
+                    {categoriaSelecionada?.nome === "Moedas" && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Cotação da Negociação (R$)" required>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                              R$
+                            </span>
+                            <input
+                              type="text"
+                              value={resgateCotacaoNeg}
+                              onChange={(e) => setResgateCotacaoNeg(formatValorInicial(e.target.value))}
+                              placeholder="0,0000"
+                              className="input-field pl-9"
+                            />
+                          </div>
+                          {resgateCotacaoRef != null && (
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                              Cotação PTAX de referência: R$ {resgateCotacaoRef.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                            </p>
+                          )}
+                        </Field>
+                        <Field label="Quantidade resgatada">
+                          <input
+                            type="text"
+                            value={(() => {
+                              const cot = parseCurrencyToNumber(resgateCotacaoNeg);
+                              const val = parseCurrencyToNumber(valor);
+                              if (cot > 0 && val > 0) return (val / cot).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+                              return "";
+                            })()}
+                            disabled
+                            placeholder="Calculado automaticamente"
+                            className="input-field opacity-60"
+                          />
+                        </Field>
+                      </div>
+                    )}
 
                     {/* Saldo disponível info */}
                     <div className="rounded-md border border-border bg-muted/30 px-4 py-3">
