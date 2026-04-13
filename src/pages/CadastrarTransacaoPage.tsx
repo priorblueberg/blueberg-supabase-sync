@@ -1605,7 +1605,7 @@ export default function CadastrarTransacaoPage() {
                           />
                         </Field>
                       </div>
-                    )
+                    )}
 
                     {/* Saldo disponível info */}
                     <div className="rounded-md border border-border bg-muted/30 px-4 py-3">
