@@ -23,15 +23,22 @@ export default function ControleCarteirasPage() {
   const [loading, setLoading] = useState(true);
   const { appliedVersion, dataReferencia, dataReferenciaISO } = useDataReferencia();
 
+  const computeStatus = (dataInicio: string | null, resgateTotal: string | null): string => {
+    if (dataInicio && dataReferenciaISO < dataInicio) return "Não Iniciada";
+    if (resgateTotal && dataReferenciaISO >= resgateTotal) return "Encerrada";
+    return "Ativa";
+  };
+
   useEffect(() => {
     supabase
       .from("controle_de_carteiras")
-      .select("id, nome_carteira, data_inicio, data_limite, resgate_total, data_calculo, status, categorias(nome)")
+      .select("id, nome_carteira, data_inicio, data_limite, resgate_total, data_calculo, status, categorias(nome), user_id")
       .order("nome_carteira")
-      .then(({ data }) => {
-        if (data) {
-          // REGRA GLOBAL: carteira só aparece se data_inicio <= dataRef e (sem resgate_total ou dataRef <= resgate_total)
+      .then(async ({ data }) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (data && user) {
           const filtered = data
+            .filter((r: any) => r.user_id === user.id)
             .map((r: any) => ({
               id: r.id,
               nome_carteira: r.nome_carteira,
@@ -39,7 +46,7 @@ export default function ControleCarteirasPage() {
               data_limite: r.data_limite,
               resgate_total: r.resgate_total,
               data_calculo: dataReferenciaISO,
-              status: r.status,
+              status: computeStatus(r.data_inicio, r.resgate_total),
             }))
             .filter((r: CarteiraRow) => {
               if (r.data_inicio && dataReferenciaISO < r.data_inicio) return false;
@@ -49,7 +56,7 @@ export default function ControleCarteirasPage() {
         }
         setLoading(false);
       });
-  }, [appliedVersion]);
+  }, [appliedVersion, dataReferenciaISO]);
 
   const headers = ["Carteira", "Data Início", "Data Limite", "Resgate Total", "Data Cálculo", "Status"];
 

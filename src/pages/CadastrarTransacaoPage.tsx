@@ -1317,6 +1317,15 @@ export default function CadastrarTransacaoPage() {
                         type="text"
                         value={taxa}
                         onChange={(e) => { setTaxa(formatTaxaInput(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("taxa"); return n; }); }}
+                        onBlur={() => {
+                          if (taxa) {
+                            const cleaned = taxa.replace(",", ".");
+                            const num = parseFloat(cleaned);
+                            if (!isNaN(num)) {
+                              setTaxa(num.toFixed(2).replace(".", ","));
+                            }
+                          }
+                        }}
                         placeholder="0,00"
                         className={`input-field pr-7 ${validationErrors.has("taxa") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
