@@ -604,11 +604,9 @@ export default function CarteiraCambioPage() {
                     <TableRow>
                       <TableHead className="min-w-[50px]">Status</TableHead>
                       <TableHead className="min-w-[250px]">Ativo</TableHead>
-                      <TableHead className="min-w-[100px] text-right">Quantidade</TableHead>
-                      <TableHead className="min-w-[100px] text-right">Cotação</TableHead>
-                      <TableHead className="min-w-[130px] text-right">Valor Atualizado</TableHead>
-                      <TableHead className="min-w-[130px] text-right">Ganho Financeiro</TableHead>
-                      <TableHead className="min-w-[110px] text-right">Rentabilidade</TableHead>
+                      <TableHead className="min-w-[130px]">Valor Atualizado</TableHead>
+                      <TableHead className="min-w-[130px]">Ganho Financeiro</TableHead>
+                      <TableHead className="min-w-[110px]">Rentabilidade</TableHead>
                       <TableHead className="min-w-[150px]">Custodiante</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -624,13 +622,9 @@ export default function CarteiraCambioPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="font-medium text-foreground">{row.nome}</TableCell>
-                        <TableCell className="text-xs text-right text-foreground">
-                          {row.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {row.currencyCode}
-                        </TableCell>
-                        <TableCell className="text-xs text-right text-foreground">R$ {row.cotacao.toFixed(4)}</TableCell>
-                        <TableCell className="text-right text-foreground">{fmtBrl(row.valorAtualizado)}</TableCell>
-                        <TableCell className="text-right text-foreground">{fmtBrl(row.ganhoFinanceiro)}</TableCell>
-                        <TableCell className="text-right text-foreground">{row.rentabilidade.toFixed(2)}%</TableCell>
+                        <TableCell className="text-foreground">{fmtBrl(row.valorAtualizado)}</TableCell>
+                        <TableCell className="text-foreground">{fmtBrl(row.ganhoFinanceiro)}</TableCell>
+                        <TableCell className="text-foreground">{row.rentabilidade.toFixed(2)}%</TableCell>
                         <TableCell className="text-foreground">{row.custodiante}</TableCell>
                       </TableRow>
                     ))}
