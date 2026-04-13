@@ -707,6 +707,11 @@ export default function CadastrarTransacaoPage() {
     setResgateDateError(null);
     setFecharPosicao(false);
     setResgateCalendarOpen(false);
+    setCotacaoNegociacao("");
+    setCotacaoMoeda(null);
+    setQuantidadeMoeda(null);
+    setResgateCotacaoRef(null);
+    setResgateCotacaoNeg("");
     if (isEditing) {
       navigate("/movimentacoes");
     }
