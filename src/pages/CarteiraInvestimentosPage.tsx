@@ -525,10 +525,16 @@ export default function CarteiraInvestimentosPage() {
     const MONTH_LABELS = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
     const monthMap = new Map<string, number>();
 
+    // Compute 12-month cutoff
+    const refDate = new Date(dataReferenciaISO + "T00:00:00");
+    refDate.setMonth(refDate.getMonth() - 11);
+    const cutoffKey = `${refDate.getFullYear()}-${String(refDate.getMonth()).padStart(2, "0")}`;
+
     for (const row of consolidatedRows) {
       if (row.patrimonio <= 0) continue;
       const dt = new Date(row.data + "T00:00:00");
       const key = `${dt.getFullYear()}-${String(dt.getMonth()).padStart(2, "0")}`;
+      if (key < cutoffKey) continue;
       monthMap.set(key, row.patrimonio);
     }
 
@@ -538,7 +544,7 @@ export default function CarteiraInvestimentosPage() {
         const [y, m] = key.split("-");
         return { mes: `${MONTH_LABELS[parseInt(m)]}/${y.slice(2)}`, patrimonio };
       });
-  }, [consolidatedRows]);
+  }, [consolidatedRows, dataReferenciaISO]);
 
   // Detail rows for RentabilidadeDetailTable
   const detailRows = useMemo(() => {
