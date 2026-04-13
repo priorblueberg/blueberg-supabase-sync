@@ -111,6 +111,7 @@ export default function CarteiraInvestimentosPage() {
   const [dataCalculo, setDataCalculo] = useState<string | null>(_invCached?.dataCalculo ?? null);
   const [rfPatrimonio, setRfPatrimonio] = useState(_invCached?.rfPatrimonio ?? 0);
   const [cambioPatrimonio, setCambioPatrimonio] = useState(_invCached?.cambioPatrimonio ?? 0);
+  const [carteiraSummary, setCarteiraSummary] = useState<CarteiraSummaryRow[]>(_invCached?.carteiraSummary ?? []);
   const [seriesVisibility, setSeriesVisibility] = useState({ cdi: true, ibovespa: false });
   const calcVersionRef = useRef(0);
 
