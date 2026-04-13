@@ -469,8 +469,17 @@ export default function CadastrarTransacaoPage() {
           .eq("data", dateISO)
           .maybeSingle();
 
-        if (cotRow && qtyMoeda > 0) {
-          setSaldoDisponivel(qtyMoeda * cotRow.cotacao_venda);
+        const cotRef = cotRow?.cotacao_venda ?? null;
+        setResgateCotacaoRef(cotRef);
+        // Pre-fill editable resgate cotação
+        if (cotRef) {
+          setResgateCotacaoNeg(cotRef.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }));
+        } else {
+          setResgateCotacaoNeg("");
+        }
+
+        if (cotRef && qtyMoeda > 0) {
+          setSaldoDisponivel(qtyMoeda * cotRef);
         } else {
           setSaldoDisponivel(null);
         }
