@@ -1471,7 +1471,7 @@ export default function CadastrarTransacaoPage() {
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={submitting || !cotacaoMoeda}
+                    disabled={submitting || !cotacaoNegociacao}
                     className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-[hsl(145,63%,32%)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[hsl(145,63%,28%)] transition-colors disabled:opacity-50"
                   >
                     <PlusCircle size={16} />
