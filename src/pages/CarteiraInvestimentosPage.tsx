@@ -161,7 +161,8 @@ export default function CarteiraInvestimentosPage() {
         }
 
         const globalDataInicio = allDates.sort()[0];
-        const globalDataCalculo = dataReferenciaISO;
+        const invCart = (carteirasData || []).find((c: any) => c.nome_carteira === "Investimentos");
+        const globalDataCalculo = invCart?.data_calculo || dataReferenciaISO;
         setDataInicio(globalDataInicio);
         setDataCalculo(globalDataCalculo);
 
@@ -378,9 +379,11 @@ export default function CarteiraInvestimentosPage() {
         if (myVersion !== calcVersionRef.current) { setLoading(false); return; }
 
         // 5. Consolidate — if only RF exists, reuse its result directly
+        let finalConsolidatedRows: ConsolidatedDailyRow[];
+
         if (!cambioResult || cambioResult.length === 0) {
           // Map CarteiraRFRow[] → ConsolidatedDailyRow[] directly
-          const mapped: ConsolidatedDailyRow[] = rfResult.map(r => ({
+          finalConsolidatedRows = rfResult.map(r => ({
             data: r.data,
             diaUtil: r.diaUtil,
             patrimonio: r.liquido,
@@ -391,16 +394,15 @@ export default function CarteiraInvestimentosPage() {
             rentDiariaPct: r.rentDiariaPct,
             rentAcumuladaPct: r.rentAcumuladaPct,
           }));
-          setConsolidatedRows(mapped);
         } else {
-          const consolidated = calcularCarteiraInvestimentos({
+          finalConsolidatedRows = calcularCarteiraInvestimentos({
             rfRows: rfResult,
             cambioRows: cambioResult,
             dataInicio: globalDataInicio,
             dataCalculo: globalDataCalculo,
           });
-          setConsolidatedRows(consolidated);
         }
+        setConsolidatedRows(finalConsolidatedRows);
 
         // 6. Build unified product list
         const products: UnifiedProduct[] = [];
@@ -475,7 +477,7 @@ export default function CarteiraInvestimentosPage() {
 
         _invCachedVersion = appliedVersion;
         _invCached = {
-          consolidatedRows: consolidatedRows,
+          consolidatedRows: finalConsolidatedRows,
           rfCarteiraRows: rfResult,
           cambioCarteiraRows: cambioResult,
           cdiRecords: mergedCdi,
