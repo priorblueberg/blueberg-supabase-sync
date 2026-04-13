@@ -664,16 +664,18 @@ export default function CadastrarTransacaoPage() {
       });
   }, [data, isMoedas, isMoeda, produtoId]);
 
-  // Recalc quantidade when valor changes (Dólar)
+  // Recalc quantidade when valor or cotacaoNegociacao changes
   useEffect(() => {
-    if (!isMoedas || !isMoeda || !cotacaoMoeda) {
+    if (!isMoedas || !isMoeda) {
       setQuantidadeMoeda(null);
       return;
     }
+    const cotNeg = parseCurrencyToNumber(cotacaoNegociacao);
+    if (cotNeg <= 0) { setQuantidadeMoeda(null); return; }
     const valorNum = parseCurrencyToNumber(valor);
-    if (valorNum > 0) setQuantidadeMoeda(valorNum / cotacaoMoeda);
+    if (valorNum > 0) setQuantidadeMoeda(valorNum / cotNeg);
     else setQuantidadeMoeda(null);
-  }, [valor, cotacaoMoeda, isMoedas, isMoeda]);
+  }, [valor, cotacaoNegociacao, isMoedas, isMoeda]);
 
   const resetForm = () => {
     setCategoriaId("");
