@@ -415,7 +415,7 @@ export default function CarteiraCambioPage() {
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
           >
             <ArrowLeft size={16} />
-            Voltar para Carteira Câmbio
+            Voltar para Carteira Moedas
           </button>
           <h1 className="text-lg font-semibold text-foreground">{selectedProduct.nome || selectedProduct.produto_nome}</h1>
           <p className="text-xs text-muted-foreground mt-1">
@@ -428,7 +428,7 @@ export default function CarteiraCambioPage() {
             { label: "Patrimônio", value: lastRow ? fmtBrl(lastRow.valorBRL) : "—" },
             { label: "Ganho Acumulado", value: lastRow ? fmtBrl(lastRow.rentAcumuladaBRL) : "—" },
             { label: "Rentabilidade", value: lastRow ? `${(lastRow.rentAcumuladaPct * 100).toFixed(2)}%` : "—" },
-            { label: `Quantidade (${currencyCode})`, value: lastRow ? lastRow.quantidadeMoeda.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : "—" },
+            { label: `Valor em ${currencyCode === "EUR" ? "Euro" : "Dólar"}`, value: lastRow ? lastRow.quantidadeMoeda.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—" },
           ].map(c => (
             <div key={c.label} className="rounded-lg border border-border bg-card p-4 shadow-sm">
               <p className="text-xs text-muted-foreground mb-1">{c.label}</p>
@@ -461,11 +461,11 @@ export default function CarteiraCambioPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-foreground">Câmbio</h1>
+        <h1 className="text-lg font-semibold text-foreground">Moedas</h1>
         {carteiraInfo && (
           carteiraInfo.status === "Não Iniciada" ? (
             <p className="text-sm text-muted-foreground mt-1">
-              Data selecionada anterior ao início dos seus investimentos em Câmbio
+              Data selecionada anterior ao início dos seus investimentos em Moedas
             </p>
           ) : (
             <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -553,7 +553,7 @@ export default function CarteiraCambioPage() {
                     <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} tickFormatter={(v) => `${v}%`} />
                     <Tooltip content={<CustomTooltipChart />} />
                     <Legend iconType="plainline" wrapperStyle={{ fontSize: 11 }} />
-                    <Line type="monotone" dataKey="titulo_acumulado" name="Carteira Câmbio" stroke="hsl(210, 100%, 45%)" strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} connectNulls />
+                    <Line type="monotone" dataKey="titulo_acumulado" name="Carteira Moedas" stroke="hsl(210, 100%, 45%)" strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} connectNulls />
                     {seriesVisibility.cdi && (
                       <Line type="monotone" dataKey="cdi_acumulado" name="CDI" stroke="hsl(0, 0%, 55%)" strokeWidth={1.5} dot={false} activeDot={{ r: 3, strokeWidth: 0 }} strokeDasharray="5 3" connectNulls />
                     )}
@@ -604,11 +604,9 @@ export default function CarteiraCambioPage() {
                     <TableRow>
                       <TableHead className="min-w-[50px]">Status</TableHead>
                       <TableHead className="min-w-[250px]">Ativo</TableHead>
-                      <TableHead className="min-w-[100px] text-right">Quantidade</TableHead>
-                      <TableHead className="min-w-[100px] text-right">Cotação</TableHead>
-                      <TableHead className="min-w-[130px] text-right">Valor Atualizado</TableHead>
-                      <TableHead className="min-w-[130px] text-right">Ganho Financeiro</TableHead>
-                      <TableHead className="min-w-[110px] text-right">Rentabilidade</TableHead>
+                      <TableHead className="min-w-[130px]">Valor Atualizado</TableHead>
+                      <TableHead className="min-w-[130px]">Ganho Financeiro</TableHead>
+                      <TableHead className="min-w-[110px]">Rentabilidade</TableHead>
                       <TableHead className="min-w-[150px]">Custodiante</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -624,13 +622,9 @@ export default function CarteiraCambioPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="font-medium text-foreground">{row.nome}</TableCell>
-                        <TableCell className="text-xs text-right text-foreground">
-                          {row.quantidade.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {row.currencyCode}
-                        </TableCell>
-                        <TableCell className="text-xs text-right text-foreground">R$ {row.cotacao.toFixed(4)}</TableCell>
-                        <TableCell className="text-right text-foreground">{fmtBrl(row.valorAtualizado)}</TableCell>
-                        <TableCell className="text-right text-foreground">{fmtBrl(row.ganhoFinanceiro)}</TableCell>
-                        <TableCell className="text-right text-foreground">{row.rentabilidade.toFixed(2)}%</TableCell>
+                        <TableCell className="text-foreground">{fmtBrl(row.valorAtualizado)}</TableCell>
+                        <TableCell className="text-foreground">{fmtBrl(row.ganhoFinanceiro)}</TableCell>
+                        <TableCell className="text-foreground">{row.rentabilidade.toFixed(2)}%</TableCell>
                         <TableCell className="text-foreground">{row.custodiante}</TableCell>
                       </TableRow>
                     ))}
