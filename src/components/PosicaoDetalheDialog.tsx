@@ -55,11 +55,17 @@ interface Props {
 function fmtBrl(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
+function fmtBrl4(v: number) {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 4, maximumFractionDigits: 4 });
+}
 function fmtDate(d: string | null) {
   return d ? new Date(d + "T12:00:00").toLocaleDateString("pt-BR") : "—";
 }
 function fmtQty(v: number | null) {
   return v != null ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 8 }) : "—";
+}
+function isMoedasCategoria(nome: string): boolean {
+  return nome.toLowerCase().includes("dólar") || nome.toLowerCase().includes("euro") || nome.toLowerCase().includes("dollar");
 }
 
 export default function PosicaoDetalheDialog({ open, onClose, data, userId, dataReferenciaISO, onDataChanged }: Props) {
@@ -178,7 +184,7 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                             <TableCell className="whitespace-nowrap">{m.tipo_movimentacao}</TableCell>
                             <TableCell className="whitespace-nowrap">{fmtBrl(m.valor)}</TableCell>
                             <TableCell className="whitespace-nowrap">{fmtQty(m.quantidade)}</TableCell>
-                            <TableCell className="whitespace-nowrap">{m.preco_unitario != null ? fmtBrl(m.preco_unitario) : "—"}</TableCell>
+                            <TableCell className="whitespace-nowrap">{m.preco_unitario != null ? (isMoedasCategoria(data.nome) ? fmtBrl4(m.preco_unitario) : fmtBrl(m.preco_unitario)) : "—"}</TableCell>
                             <TableCell>
                               {isAuto ? <Badge variant="secondary">Auto</Badge> : "Manual"}
                             </TableCell>
