@@ -1,34 +1,23 @@
 
 
-## Diagnóstico: Por que apenas o Prefixado Mensal aparece nos Proventos
+## Correção: Incluir juros de títulos "No Vencimento" na página de Proventos
 
-Dois bugs na página `ProventosRecebidosPage.tsx` impedem que títulos Pós Fixado / Mista (CDI) calculem juros periódicos corretamente:
+### Problema
+Linha 74 de `ProventosRecebidosPage.tsx` filtra explicitamente `c.pagamento !== "No Vencimento"`, excluindo títulos com essa modalidade de pagamento. Porém, no dia do vencimento, o engine calcula `jurosPago > 0` para esses títulos tambem -- esse valor precisa aparecer como provento.
 
-### Bug 1: Campo `indexador` não está no SELECT da query
-
-Linha 62 seleciona:
-```
-codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, 
-preco_unitario, resgate_total, pagamento, vencimento, categoria_id, categorias(nome)
-```
-
-**Falta `indexador`.** Resultado: `(prod as any).indexador` é sempre `undefined`. O engine trata todos os títulos como se não tivessem indexador, ignorando a lógica CDI. Títulos Pós Fixado 110% CDI e Mista CDI+ 5% não evoluem o PU corretamente, gerando `pagamentoJuros = 0`.
-
-O título Prefixado funciona porque não depende de indexador.
-
-### Bug 2: `historico_cdi` não é buscado
-
-A página busca `historico_selic`, `historico_tr` e `historico_poupanca_rendimento` apenas para Poupança. Mas para títulos CDI/CDI+ de Renda Fixa, o engine precisa de `historico_cdi` (com `cdiRecords`). Sem esses dados, o fator diário CDI é zero e os juros não evoluem.
-
-### Plano de correção
+### Correção
 
 **Arquivo:** `src/pages/ProventosRecebidosPage.tsx`
 
-1. **Adicionar `indexador` ao SELECT** da query de custódia (linha 62).
+1. **Ampliar o filtro `withPayment` (linha 73-75):** Incluir todos os títulos de Renda Fixa que tenham `pagamento` preenchido (incluindo "No Vencimento"), em vez de excluir "No Vencimento". O filtro passa a ser:
+   - `c.categorias?.nome === "Renda Fixa"` e `c.pagamento` preenchido (truthy)
+   - Remove a condição `c.pagamento !== "No Vencimento"`
 
-2. **Buscar `historico_cdi`** no bloco de Promise.all (linhas 99-113): adicionar uma query condicional que busca CDI quando existem títulos RF com indexador CDI na lista `withPayment`.
+2. **Verificar `needsCdi` (linha 97-100):** Ja cobre todos os `withPayment`, entao naturalmente incluira os novos titulos CDI com "No Vencimento" (ex.: DPGE UBS 120% CDI). Sem alteracao necessaria.
 
-3. **Passar `cdiRecords` ao engine** na chamada `calcularRendaFixaDiario` (linha 159): incluir o parâmetro `cdiRecords` para títulos com indexador CDI.
+3. **O loop de coleta (linhas 196-205):** Ja usa `row.pagamentoJuros > 0.01` para filtrar -- titulos "No Vencimento" so terao `pagamentoJuros > 0` no dia do vencimento, entao so essa linha aparecera. Sem alteracao necessaria.
 
-Nenhuma outra lógica será alterada. Apenas dados que já existem no banco serão buscados e passados ao engine corretamente.
+### Impacto
+- Titulos como "DPGE Banco de Investimentos UBS Pos Fixado 120% CDI - 24/11/2025" (No Vencimento) passarao a aparecer na lista de proventos com o juros pago no dia do vencimento.
+- Nenhuma regra de calculo e alterada.
 
