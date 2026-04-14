@@ -71,7 +71,7 @@ export default function ProventosRecebidosPage() {
 
       // Separate renda fixa with periodic payment and poupança (by modalidade)
       const withPayment = custodias.filter(
-        (c: any) => c.pagamento && c.pagamento !== "No Vencimento" && (c.categorias?.nome === "Renda Fixa" || (!c.categorias && c.modalidade !== "Poupança"))
+        (c: any) => c.pagamento && (c.categorias?.nome === "Renda Fixa" || (!c.categorias && c.modalidade !== "Poupança"))
       );
       const poupancaProducts = custodias.filter(
         (c: any) => c.modalidade === "Poupança"
