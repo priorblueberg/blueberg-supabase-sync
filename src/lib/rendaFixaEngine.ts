@@ -413,7 +413,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
 
     // T: Juros Pago — now uses baseEconômica instead of valorInvestido
     let jurosPago: number;
-    if (isFinalDay && pagamento !== "No Vencimento") {
+    if (isFinalDay) {
       jurosPago = apoioCupom - tempBaseEconomica;
     } else if (isPagamento) {
       jurosPago = apoioCupom - tempBaseEconomica;
