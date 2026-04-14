@@ -1,33 +1,34 @@
 
 
-## Bug: Pagamento trimestral aparecendo em 13/04/2026
+## Diagnóstico: Por que apenas o Prefixado Mensal aparece nos Proventos
 
-### Causa raiz
+Dois bugs na página `ProventosRecebidosPage.tsx` impedem que títulos Pós Fixado / Mista (CDI) calculem juros periódicos corretamente:
 
-O engine passa `effectiveEnd` (= `2026-12-31`, data do vencimento) como parâmetro `dataCalculo` para `gerarDatasPagamentoJuros`. Isso faz a funcao gerar datas de pagamento futuras como `2026-06-30`, `2026-09-30` e `2026-12-31`.
+### Bug 1: Campo `indexador` não está no SELECT da query
 
-Porem, o calendario disponivel so vai ate `2026-04-13` (data de hoje). Quando `ajustarParaDiaUtil("2026-06-30")` e chamada, ela faz busca binaria no calendario e encontra `2026-04-13` como a data mais proxima. Como essa data e dia util, retorna `"2026-04-13"` como "dia util ajustado" para o pagamento de junho.
-
-Resultado: `datasPagamento` contem `"2026-04-13"` indevidamente, e o engine calcula juros (R$ 71,78) nessa data.
-
-### Correcao
-
-**Arquivo:** `src/lib/rendaFixaEngine.ts`, linha 276
-
-Trocar `effectiveEnd` por `endDate` na chamada a `gerarDatasPagamentoJuros`:
-
-```ts
-// Antes:
-gerarDatasPagamentoJuros(dataInicio, vencimento, pagamento, calendario, effectiveEnd)
-
-// Depois:
-gerarDatasPagamentoJuros(dataInicio, vencimento, pagamento, calendario, endDate)
+Linha 62 seleciona:
+```
+codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, 
+preco_unitario, resgate_total, pagamento, vencimento, categoria_id, categorias(nome)
 ```
 
-Isso garante que datas de pagamento so serao geradas ate a data de calculo real (`dataCalculo`), nao ate o vencimento futuro. Como o calendario nunca contem datas alem de `endDate`, a funcao `ajustarParaDiaUtil` sempre tera dados validos para trabalhar.
+**Falta `indexador`.** Resultado: `(prod as any).indexador` é sempre `undefined`. O engine trata todos os títulos como se não tivessem indexador, ignorando a lógica CDI. Títulos Pós Fixado 110% CDI e Mista CDI+ 5% não evoluem o PU corretamente, gerando `pagamentoJuros = 0`.
 
-### Impacto
-- O pagamento espurio em 13/04/2026 desaparece.
-- Pagamentos passados ja processados (como 2026-03-31 trimestral) continuam corretos.
-- Nenhum outro titulo e afetado, pois para titulos ja vencidos `endDate == effectiveEnd`.
+O título Prefixado funciona porque não depende de indexador.
+
+### Bug 2: `historico_cdi` não é buscado
+
+A página busca `historico_selic`, `historico_tr` e `historico_poupanca_rendimento` apenas para Poupança. Mas para títulos CDI/CDI+ de Renda Fixa, o engine precisa de `historico_cdi` (com `cdiRecords`). Sem esses dados, o fator diário CDI é zero e os juros não evoluem.
+
+### Plano de correção
+
+**Arquivo:** `src/pages/ProventosRecebidosPage.tsx`
+
+1. **Adicionar `indexador` ao SELECT** da query de custódia (linha 62).
+
+2. **Buscar `historico_cdi`** no bloco de Promise.all (linhas 99-113): adicionar uma query condicional que busca CDI quando existem títulos RF com indexador CDI na lista `withPayment`.
+
+3. **Passar `cdiRecords` ao engine** na chamada `calcularRendaFixaDiario` (linha 159): incluir o parâmetro `cdiRecords` para títulos com indexador CDI.
+
+Nenhuma outra lógica será alterada. Apenas dados que já existem no banco serão buscados e passados ao engine corretamente.
 
