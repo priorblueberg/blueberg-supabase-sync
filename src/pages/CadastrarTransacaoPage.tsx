@@ -106,6 +106,17 @@ function formatCurrency(value: string): string {
   return formatted;
 }
 
+function formatCotacao4(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  const num = parseInt(digits, 10);
+  const formatted = (num / 10000).toLocaleString("pt-BR", {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  });
+  return formatted;
+}
+
 function formatValorInicial(value: string): string {
   let cleaned = value.replace(/[^\d,]/g, "");
   const parts = cleaned.split(",");
@@ -477,7 +488,7 @@ export default function CadastrarTransacaoPage() {
         setResgateCotacaoRef(cotRef);
         // Pre-fill editable resgate cotação
         if (cotRef) {
-          setResgateCotacaoNeg(formatCurrency(Math.round(cotRef * 100).toString()));
+          setResgateCotacaoNeg(formatCotacao4(Math.round(cotRef * 10000).toString()));
         } else {
           setResgateCotacaoNeg("");
         }
@@ -683,7 +694,7 @@ export default function CadastrarTransacaoPage() {
         setCotacaoLoading(false);
         // Pre-fill editable field with PTAX reference
         if (cot) {
-          setCotacaoNegociacao(formatCurrency(Math.round(cot * 100).toString()));
+          setCotacaoNegociacao(formatCotacao4(Math.round(cot * 10000).toString()));
           if (valor) {
             const valorNum = parseCurrencyToNumber(valor);
             if (valorNum > 0) setQuantidadeMoeda(valorNum / cot);
@@ -1449,9 +1460,9 @@ export default function CadastrarTransacaoPage() {
                       <input
                         type="text"
                         value={cotacaoLoading ? "Buscando..." : cotacaoNegociacao}
-                        onChange={(e) => { setCotacaoNegociacao(formatCurrency(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("cotacaoNegociacao"); return n; }); }}
+                        onChange={(e) => { setCotacaoNegociacao(formatCotacao4(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("cotacaoNegociacao"); return n; }); }}
                         disabled={cotacaoLoading}
-                        placeholder="0,00"
+                        placeholder="0,0000"
                         className={`input-field pl-9 ${validationErrors.has("cotacaoNegociacao") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
                     </div>
@@ -1631,8 +1642,8 @@ export default function CadastrarTransacaoPage() {
                             <input
                               type="text"
                               value={resgateCotacaoNeg}
-                              onChange={(e) => setResgateCotacaoNeg(formatCurrency(e.target.value))}
-                              placeholder="0,00"
+                              onChange={(e) => setResgateCotacaoNeg(formatCotacao4(e.target.value))}
+                              placeholder="0,0000"
                               className="input-field pl-9"
                             />
                           </div>
