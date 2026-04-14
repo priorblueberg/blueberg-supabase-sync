@@ -59,7 +59,7 @@ export default function ProventosRecebidosPage() {
       const tFetch = performance.now();
       const { data: custodias } = await supabase
         .from("custodia")
-        .select("codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, categoria_id, categorias(nome)")
+        .select("codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, categoria_id, indexador, categorias(nome)")
         .eq("user_id", user.id);
       console.log(`[PERF][Proventos]   fetch custodia: ${(performance.now()-tFetch).toFixed(0)}ms`);
 
@@ -94,9 +94,13 @@ export default function ProventosRecebidosPage() {
       // Batch fetch calendar and all movimentações
       const allCodigos = allProducts.map((p: any) => p.codigo_custodia);
       const poupancaCodigos = poupancaProducts.map((p: any) => p.codigo_custodia);
+      const needsCdi = withPayment.some((p: any) => {
+        const idx = (p.indexador || "").toUpperCase();
+        return idx === "CDI" || idx === "CDI+";
+      });
 
       const tHist = performance.now();
-      const [calRes, allMovRes, selicRes, lotesRes, trRes, poupRendRes] = await Promise.all([
+      const [calRes, allMovRes, selicRes, lotesRes, trRes, poupRendRes, cdiRes] = await Promise.all([
         supabase.from("calendario_dias_uteis").select("data, dia_util")
           .gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
         supabase.from("movimentacoes").select("data, tipo_movimentacao, valor, codigo_custodia")
@@ -110,6 +114,9 @@ export default function ProventosRecebidosPage() {
           : Promise.resolve({ data: [] }),
         poupancaCodigos.length > 0
           ? supabase.from("historico_poupanca_rendimento").select("data, rendimento_mensal").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
+          : Promise.resolve({ data: [] }),
+        needsCdi
+          ? supabase.from("historico_cdi").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data")
           : Promise.resolve({ data: [] }),
       ]);
       console.log(`[PERF][Proventos]   fetch históricos: ${(performance.now()-tHist).toFixed(0)}ms`);
@@ -156,6 +163,12 @@ export default function ProventosRecebidosPage() {
         if (!engineRows) {
           rfMisses++;
           const tEng = performance.now();
+          const prodIndexador = (prod as any).indexador || "";
+          const prodIndexadorUpper = prodIndexador.toUpperCase();
+          const isCdi = prodIndexadorUpper === "CDI" || prodIndexadorUpper === "CDI+";
+          const cdiRecords = isCdi
+            ? ((cdiRes as any).data || []).map((r: any) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) }))
+            : undefined;
           const fullRows = calcularRendaFixaDiario({
             dataInicio: prod.data_inicio,
             dataCalculo: endDate,
@@ -168,9 +181,10 @@ export default function ProventosRecebidosPage() {
             pagamento: prod.pagamento,
             vencimento: prod.vencimento,
             calendarioSorted: true,
-            indexador: (prod as any).indexador,
-            ipcaOficialRecords: (prod as any).indexador === "IPCA" ? ipcaData?.oficial : undefined,
-            ipcaProjecaoRecords: (prod as any).indexador === "IPCA" ? ipcaData?.projecao : undefined,
+            indexador: prodIndexador,
+            ipcaOficialRecords: prodIndexadorUpper === "IPCA" ? ipcaData?.oficial : undefined,
+            ipcaProjecaoRecords: prodIndexadorUpper === "IPCA" ? ipcaData?.projecao : undefined,
+            cdiRecords,
           });
           console.log(`[PERF][Proventos]     engine RF cod=${prod.codigo_custodia} (${fullRows.length} rows): ${(performance.now()-tEng).toFixed(0)}ms`);
           cacheRFResult(prod.codigo_custodia, fullRows, cacheParams);
