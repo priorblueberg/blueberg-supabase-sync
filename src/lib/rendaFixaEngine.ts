@@ -273,7 +273,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
 
   // Generate payment dates
   const datasPagamento = pagamento && pagamento !== "No Vencimento" && vencimento
-    ? gerarDatasPagamentoJuros(dataInicio, vencimento, pagamento, calendario, effectiveEnd)
+    ? gerarDatasPagamentoJuros(dataInicio, vencimento, pagamento, calendario, endDate)
     : new Set<string>();
 
   const dayBefore = findDayBefore(dataInicio, calendario);
@@ -413,7 +413,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
 
     // T: Juros Pago — now uses baseEconômica instead of valorInvestido
     let jurosPago: number;
-    if (isFinalDay && pagamento !== "No Vencimento") {
+    if (isFinalDay) {
       jurosPago = apoioCupom - tempBaseEconomica;
     } else if (isPagamento) {
       jurosPago = apoioCupom - tempBaseEconomica;

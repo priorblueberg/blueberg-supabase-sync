@@ -71,7 +71,7 @@ export default function ProventosRecebidosPage() {
 
       // Separate renda fixa with periodic payment and poupança (by modalidade)
       const withPayment = custodias.filter(
-        (c: any) => c.pagamento && c.pagamento !== "No Vencimento" && (c.categorias?.nome === "Renda Fixa" || (!c.categorias && c.modalidade !== "Poupança"))
+        (c: any) => c.pagamento && (c.categorias?.nome === "Renda Fixa" || (!c.categorias && c.modalidade !== "Poupança"))
       );
       const poupancaProducts = custodias.filter(
         (c: any) => c.modalidade === "Poupança"
@@ -195,6 +195,7 @@ export default function ProventosRecebidosPage() {
 
         for (const row of engineRows) {
           if (row.pagamentoJuros > 0.01) {
+            console.log(`[DEBUG][Proventos] cod=${prod.codigo_custodia} nome=${prod.nome} data=${row.data} pagJuros=${row.pagamentoJuros.toFixed(2)} isFinal=${row.data === prod.vencimento || row.data === prod.resgate_total} isPagamento=inSet vencimento=${prod.vencimento} resgate_total=${prod.resgate_total} pagamento=${prod.pagamento}`);
             allProventos.push({
               data: row.data,
               nome: prod.nome || "—",
