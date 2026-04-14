@@ -1,34 +1,34 @@
 
 
-# Phase 1: Supabase Connection + Validation
+## Diagnóstico: Por que apenas o Prefixado Mensal aparece nos Proventos
 
-## What will be done
+Dois bugs na página `ProventosRecebidosPage.tsx` impedem que títulos Pós Fixado / Mista (CDI) calculem juros periódicos corretamente:
 
-### Step 1: Install dependency
-- Add `@supabase/supabase-js@^2.99.0` to the project
+### Bug 1: Campo `indexador` não está no SELECT da query
 
-### Step 2: Create integration files (exact copies from reference)
-
-**`src/integrations/supabase/client.ts`** — Same as reference but with fallback defaults for this environment:
-```ts
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "https://rrmktaabcurmehojmyoo.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "sb_publishable_xBmo1TAndEhpliEHu5Ok-A_QkS2ZiPE";
+Linha 62 seleciona:
+```
+codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, 
+preco_unitario, resgate_total, pagamento, vencimento, categoria_id, categorias(nome)
 ```
 
-**`src/integrations/supabase/types.ts`** — Exact copy (837 lines, no changes)
+**Falta `indexador`.** Resultado: `(prod as any).indexador` é sempre `undefined`. O engine trata todos os títulos como se não tivessem indexador, ignorando a lógica CDI. Títulos Pós Fixado 110% CDI e Mista CDI+ 5% não evoluem o PU corretamente, gerando `pagamentoJuros = 0`.
 
-### Step 3: Run validation script
-A temporary script (`/tmp/validate.ts`) that:
+O título Prefixado funciona porque não depende de indexador.
 
-1. **Reference data counts** — `SELECT count(*)` on all 10 historical/reference tables
-2. **Write permission tests** — INSERT a test row with identifiable marker (`_BLUEBERG_VALIDATION_TEST_`), then DELETE it, on: `movimentacoes`, `custodia`, `controle_de_carteiras`, `poupanca_lotes`
-3. **RPC test** — Call `check_email_exists` with a test email
-4. **Report** — Print all results in a structured table
+### Bug 2: `historico_cdi` não é buscado
 
-All test data will be cleaned up immediately after each write test. Results will be presented before any further implementation.
+A página busca `historico_selic`, `historico_tr` e `historico_poupanca_rendimento` apenas para Poupança. Mas para títulos CDI/CDI+ de Renda Fixa, o engine precisa de `historico_cdi` (com `cdiRecords`). Sem esses dados, o fator diário CDI é zero e os juros não evoluem.
 
-### What this does NOT do
-- No pages, components, hooks, or engines copied yet
-- No logic changes
-- No table creation or schema modification
+### Plano de correção
+
+**Arquivo:** `src/pages/ProventosRecebidosPage.tsx`
+
+1. **Adicionar `indexador` ao SELECT** da query de custódia (linha 62).
+
+2. **Buscar `historico_cdi`** no bloco de Promise.all (linhas 99-113): adicionar uma query condicional que busca CDI quando existem títulos RF com indexador CDI na lista `withPayment`.
+
+3. **Passar `cdiRecords` ao engine** na chamada `calcularRendaFixaDiario` (linha 159): incluir o parâmetro `cdiRecords` para títulos com indexador CDI.
+
+Nenhuma outra lógica será alterada. Apenas dados que já existem no banco serão buscados e passados ao engine corretamente.
 
