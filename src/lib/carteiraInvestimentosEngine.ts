@@ -89,7 +89,7 @@ export function calcularCarteiraInvestimentos(input: ConsolidatedInput): Consoli
       rentAcumuladaPct: rentAcumuladaFactor - 1,
     });
 
-    
+    prevPatrimonio = agg.patrimonio;
   }
 
   return result;
