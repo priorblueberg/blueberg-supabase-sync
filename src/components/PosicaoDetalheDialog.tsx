@@ -55,11 +55,17 @@ interface Props {
 function fmtBrl(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
+function fmtBrl4(v: number) {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 4, maximumFractionDigits: 4 });
+}
 function fmtDate(d: string | null) {
   return d ? new Date(d + "T12:00:00").toLocaleDateString("pt-BR") : "—";
 }
 function fmtQty(v: number | null) {
   return v != null ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 8 }) : "—";
+}
+function isMoedasCategoria(nome: string): boolean {
+  return nome.toLowerCase().includes("dólar") || nome.toLowerCase().includes("euro") || nome.toLowerCase().includes("dollar");
 }
 
 export default function PosicaoDetalheDialog({ open, onClose, data, userId, dataReferenciaISO, onDataChanged }: Props) {

@@ -654,7 +654,12 @@ export default function CadastrarTransacaoPage() {
       setProdutoId(mov.produto_id);
       setData(mov.data);
       setValor(mov.valor ? formatCurrency(Math.round(mov.valor * 100).toString()) : "");
-      setPrecoUnitario(mov.preco_unitario ? formatCurrency(Math.round(mov.preco_unitario * 100).toString()) : "1.000,00");
+      const editIsMoedas = categorias.find(c => c.id === mov.categoria_id)?.nome === "Moedas";
+      setPrecoUnitario(mov.preco_unitario
+        ? (editIsMoedas
+            ? formatCotacao4(Math.round(mov.preco_unitario * 10000).toString())
+            : formatCurrency(Math.round(mov.preco_unitario * 100).toString()))
+        : "1.000,00");
       setInstituicaoId(mov.instituicao_id || "");
       setEmissorId(mov.emissor_id || "");
       setModalidade(mov.modalidade || "");
