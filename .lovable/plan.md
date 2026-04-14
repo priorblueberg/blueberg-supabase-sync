@@ -1,77 +1,79 @@
 
 
-## Bug: Card de rentabilidade da Carteira Investimentos diverge da Carteira RF
+## Redesign da Página de Proventos (/proventos)
 
-### Causa raiz
+### Resumo das mudanças
 
-A Carteira RF calcula a base da rentabilidade diária como:
+Reescrever a página de Proventos com 6 alterações conforme o documento:
+
+### 1. Data de referência fixa em D-1 (desligada do seletor)
+
+A página calculará sua própria `dataRef = D-1` (ontem) ao invés de usar `dataReferenciaISO` do contexto. O `useEffect` não dependerá mais de `appliedVersion` / `dataReferenciaISO`. A data será exibida no cabeçalho: **"Data de Referência: 13/04/2026"**.
+
+### 2. Todos os produtos RF com tipo "Rendimentos"
+
+- Remover o filtro `c.pagamento` que hoje restringe a apenas produtos com pagamento periódico. Incluir **todos** os produtos de Renda Fixa (incluindo "No Vencimento").
+- Alterar o tipo de `"Pagamento de Juros"` para `"Rendimentos"` para todos os produtos RF.
+- Poupança já usa `"Rendimento"` — será equalizado para `"Rendimentos"` (plural).
+
+### 3. Bloco "Resumo (Últimos 12 meses)"
+
+- Calcular janela de 12 meses fechados a partir do mês atual. Ex: se D-1 = 13/04/2026, janela = 01/05/2025 a 30/04/2026.
+- **Card à esquerda**: total por tipo de provento + total geral nos 12 meses.
+- **Gráfico de barras à direita**: barras empilhadas mensais (Mai/2025 a Abr/2026), usando `recharts` (BarChart + Bar stacked). Cada "stack" é um tipo de provento.
+
+### 4. Remover tabela de totais
+
+A tabela "Tipo / Total" que existe hoje será removida (substituída pelo bloco de resumo acima).
+
+### 5. Dois filtros combinados
+
+- Filtro por **Ativo** (select com todos os nomes).
+- Filtro por **Tipo de Provento** (select com tipos únicos).
+- Ambos filtram em conjunto (AND).
+
+### 6. Paginação + ordenação padrão
+
+- Ordenação padrão: data decrescente (mais novo primeiro) — já é o default.
+- Paginação de 10 itens por página.
+- Navegação com setas esquerda/direita + indicador "Página X de Y".
+
+---
+
+### Detalhes técnicos
+
+**Arquivo editado:** `src/pages/ProventosRecebidosPage.tsx`
+
+**Dependências:** `recharts` (já instalado), `date-fns` (já usado no projeto via `subDays`, `format`).
+
+**Estrutura do componente:**
+
 ```text
-base = prevLiquido + aplicacoes
+┌─ Header ──────────────────────────────────────────────┐
+│ Proventos Recebidos           Data de Referência: D-1 │
+│ Pagamentos e rendimentos dos seus títulos             │
+├─ Resumo (Últimos 12 meses) ──────────────────────────┤
+│ ┌─Card─────────┐  ┌─Gráfico barras empilhadas──────┐ │
+│ │ Rendimentos  │  │  ████                           │ │
+│ │ R$ XX.XXX    │  │  ████  ██                       │ │
+│ │              │  │  ████  ██  ██                   │ │
+│ │ Total        │  │  Mai  Jun  Jul ... Abr          │ │
+│ │ R$ XX.XXX    │  └─────────────────────────────────┘ │
+│ └──────────────┘                                      │
+├─ Extrato ────────────────── Filtros: [Ativo] [Tipo] ─┤
+│ Data │ Nome │ Tipo │ Valor Recebido                   │
+│ ...  │ ...  │ ...  │ ...                              │
+│                        Página 1 de 10   ◄ ►           │
+└───────────────────────────────────────────────────────┘
 ```
 
-A Carteira Investimentos (engine consolidado) calcula como:
-```text
-base = prevPatrimonio    (sem aplicacoes)
-```
+**Lógica de dados:**
+- `dataRef = format(subDays(new Date(), 1), "yyyy-MM-dd")` — fixo, calculado uma vez.
+- Incluir TODOS os produtos RF (não filtrar por `c.pagamento`). Para produtos sem pagamento periódico, o engine já calcula `pagamentoJuros` no `isFinalDay`.
+- Tipo unificado: `"Rendimentos"` para RF e Poupança.
+- Janela 12 meses: mês atual completo + 11 meses anteriores. Filtrar `rows` por data dentro da janela para o resumo. A lista de extrato mostra TODOS os proventos.
 
-O campo `aplicacoes` nunca é preenchido no engine consolidado (sempre `0`). Nos dias em que há aplicações, o denominador fica diferente, gerando uma rentabilidade diária ligeiramente diferente que se acumula ao longo do tempo (29,44% vs 29,48%).
+**Gráfico:** `BarChart` com `Bar` empilhadas (`stackId="a"`), eixo X = meses (Mai/2025...Abr/2026), cores distintas por tipo.
 
-A tabela de rentabilidade mensal mostra o valor correto porque usa `buildDetailRowsFromEngine`, que recalcula a partir dos dados adaptados. Já o card usa `consolidatedRows[last].rentAcumuladaPct` direto do engine consolidado.
-
-### Correção
-
-**Arquivo:** `src/lib/carteiraInvestimentosEngine.ts`
-
-Em vez de recalcular `rentDiariaPct` a partir de R$ (perdendo a informação de `aplicacoes`), usar o `rentDiariaPct` já calculado corretamente pela carteira RF/Câmbio. Quando há apenas uma sub-carteira num dado dia, usar seu `rentDiariaPct` diretamente. Quando há múltiplas, ponderar pelo patrimônio do dia anterior.
-
-Mudanças concretas:
-
-1. No `addRows`, armazenar também o `rentDiariaPct` pré-calculado e o `prevLiquido` (patrimônio do dia anterior da sub-carteira) para ponderação:
-
-```ts
-const addRows = (rows: CarteiraRFRow[]) => {
-  let prev = 0;
-  for (const r of rows) {
-    if (r.data < dataInicio || r.data > dataCalculo) continue;
-    const existing = dateMap.get(r.data);
-    if (existing) {
-      existing.patrimonio += r.liquido;
-      existing.ganhoDiarioRS += r.rentDiariaRS;
-      existing.subParts.push({ prevLiq: prev, rentDiariaPct: r.rentDiariaPct });
-    } else {
-      dateMap.set(r.data, {
-        diaUtil: r.diaUtil,
-        patrimonio: r.liquido,
-        aplicacoes: 0,
-        resgates: 0,
-        ganhoDiarioRS: r.rentDiariaRS,
-        subParts: [{ prevLiq: prev, rentDiariaPct: r.rentDiariaPct }],
-      });
-    }
-    prev = r.liquido;
-  }
-};
-```
-
-2. No loop principal, calcular `rentDiariaPct` como média ponderada pelo patrimônio anterior:
-
-```ts
-for (const [data, agg] of sorted) {
-  // Weighted daily return from sub-portfolios
-  const totalPrev = agg.subParts.reduce((s, p) => s + p.prevLiq, 0);
-  const rentDiariaPct = totalPrev > 0.01
-    ? agg.subParts.reduce((s, p) => s + p.rentDiariaPct * p.prevLiq, 0) / totalPrev
-    : 0;
-
-  ganhoAcumulado += agg.ganhoDiarioRS;
-  rentAcumuladaFactor *= (1 + rentDiariaPct);
-  // ...
-  prevPatrimonio = agg.patrimonio;
-}
-```
-
-### Impacto
-- O card da Carteira Investimentos passará a mostrar exatamente o mesmo valor da Carteira RF (29,44%).
-- Quando houver Câmbio, a ponderação pelo patrimônio anterior garante composição TWR correta entre sub-carteiras.
-- A tabela de rentabilidade mensal continua inalterada (já estava correta).
+**Paginação:** State `page` com 10 itens/página, `Math.ceil(filteredRows.length / 10)` total de páginas.
 
