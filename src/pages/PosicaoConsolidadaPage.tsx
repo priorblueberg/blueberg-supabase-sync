@@ -291,8 +291,7 @@ export default function PosicaoConsolidadaPage() {
 
         const lastRow = engineRows.length > 0 ? engineRows[engineRows.length - 1] : null;
         if (lastRow) {
-          const usePeriodic = product.pagamento && product.pagamento !== "No Vencimento";
-          const rentPct = usePeriodic ? lastRow.rentAcumulada2 : lastRow.rentabilidadeAcumuladaPct;
+          const rentPct = lastRow.rentabilidadeAcumuladaPct;
           posicaoRows.push({
             nome: product.nome || product.produto_nome,
             valorAtualizado: isEncerrado ? 0 : lastRow.liquido,
