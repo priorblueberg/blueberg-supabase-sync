@@ -489,7 +489,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       valorCota1 = prevValorCota;
     } else if (isFinalDay) {
       // Final day: Resgate / Saldo de Cotas (2)
-      valorCota1 = saldoCotas2 > 0 ? resgatesTotal / saldoCotas2 : prevValorCota;
+      valorCota1 = saldoCotas2 > 0 ? (resgatesTotal + jurosPago) / saldoCotas2 : prevValorCota;
     } else {
       // Normal: (Líquido(1) + Juros Pago) / Saldo Cotas(1)
       valorCota1 = saldoCotas1 > 0 ? (liquido1 + jurosPago) / saldoCotas1 : prevValorCota;
