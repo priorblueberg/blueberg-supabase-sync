@@ -122,11 +122,7 @@ export function buildDetailRowsFromEngine(
 
     let dailyRent: number;
     if (useRentAcum2) {
-      if (row.diaUtil && prevRowLiquido > 0.01) {
-        dailyRent = row.ganhoDiario / (prevRowLiquido + row.aplicacoes);
-      } else {
-        dailyRent = 0;
-      }
+      dailyRent = row.rentDiariaPct ?? 0;
     } else {
       dailyRent = row.rentabilidadeDiaria ?? 0;
     }
