@@ -1,33 +1,33 @@
 
 
-## Cotação de moedas com 4 casas decimais
+## Fix: Cotação com 4 casas decimais — pontos faltantes
 
-### Problema
-A função `formatCurrency` formata valores com 2 casas decimais (`maximumFractionDigits: 2`). O campo de cotação para moedas (Aplicação e Resgate) usa essa mesma função, truncando a cotação PTAX que tem 4 casas decimais (ex: 4,9833 vira 4,98).
+### Diagnóstico
 
-### Solução
+A alteração anterior corrigiu o campo de input e o pre-fill, mas **dois pontos** ficaram de fora:
 
-**Arquivo:** `src/pages/CadastrarTransacaoPage.tsx`
+1. **Edição de movimentação existente (linha 657):** Ao carregar uma movimentação para edição, o `preco_unitario` é formatado com `formatCurrency` (2 casas). Para moedas, deve usar `formatCotacao4` (4 casas). Isso faz com que ao editar um câmbio, a cotação apareça truncada.
 
-1. **Criar `formatCotacao4`** — nova função similar a `formatCurrency` mas com 4 casas decimais:
-   - Divide por 10000 ao invés de 100
-   - Usa `minimumFractionDigits: 4, maximumFractionDigits: 4`
+2. **Exibição na tabela de detalhes (`PosicaoDetalheDialog.tsx`):** A coluna "Preço Unit." usa `fmtBrl` que formata com 2 casas decimais. Para moedas, deve exibir 4 casas.
 
-2. **Atualizar pre-fill da cotação na Aplicação** (linha ~686):
-   - De: `formatCurrency(Math.round(cot * 100).toString())`
-   - Para: `formatCotacao4(Math.round(cot * 10000).toString())`
+### Observação sobre o dado existente
 
-3. **Atualizar pre-fill da cotação no Resgate** (linha ~480):
-   - De: `formatCurrency(Math.round(cotRef * 100).toString())`
-   - Para: `formatCotacao4(Math.round(cotRef * 10000).toString())`
+O ativo "Dólar Em Espécie" já está salvo com `preco_unitario = 4.97` e `quantidade = 10.026,96`. O saldo de R$ 49.967,36 vem de `10.026,96 × PTAX(4,9833)`. O valor correto de R$ 49.833,00 só aparecerá quando o usuário re-salvar a transação com a cotação correta de 4 casas (ex: 4,9833), que produzirá `quantidade = 49.833 / 4,9833 = 10.000,00`.
 
-4. **Atualizar onChange do campo cotação Aplicação** (linha ~1452):
-   - De: `formatCurrency(e.target.value)`
-   - Para: `formatCotacao4(e.target.value)`
+### Alterações
 
-5. **Atualizar onChange do campo cotação Resgate** (linha ~1634):
-   - De: `formatCurrency(e.target.value)`
-   - Para: `formatCotacao4(e.target.value)`
+**Arquivo 1: `src/pages/CadastrarTransacaoPage.tsx`**
 
-6. **`parseCurrencyToNumber` não precisa mudar** — já funciona com qualquer número de decimais.
+- Linha ~657: Ao carregar movimentação para edição, verificar se é moeda. Se sim, usar `formatCotacao4(Math.round(mov.preco_unitario * 10000).toString())` ao invés de `formatCurrency(Math.round(mov.preco_unitario * 100).toString())`.
+
+**Arquivo 2: `src/components/PosicaoDetalheDialog.tsx`**
+
+- Receber a `categoriaId` (já disponível em `PosicaoDetalheData`).
+- Na coluna "Preço Unit.", se a categoria for moedas, formatar com 4 casas decimais ao invés de 2.
+
+### Dados técnicos
+
+- A categoria "Moedas" é identificada por `categoriaId` que já está em `PosicaoDetalheData`.
+- Precisamos saber o ID da categoria moedas ou verificar por nome do produto. A forma mais simples: checar se `data.categoriaId` corresponde à categoria moedas, ou verificar se o nome contém "Dólar"/"Euro".
+- Para `PosicaoDetalheDialog`, basta criar uma função `fmtPrecoUnit` que usa 4 casas quando é moeda.
 
