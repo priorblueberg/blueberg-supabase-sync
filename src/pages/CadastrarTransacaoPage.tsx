@@ -1462,7 +1462,7 @@ export default function CadastrarTransacaoPage() {
                         value={cotacaoLoading ? "Buscando..." : cotacaoNegociacao}
                         onChange={(e) => { setCotacaoNegociacao(formatCotacao4(e.target.value)); setValidationErrors((prev) => { const n = new Set(prev); n.delete("cotacaoNegociacao"); return n; }); }}
                         disabled={cotacaoLoading}
-                        placeholder="0,00"
+                        placeholder="0,0000"
                         className={`input-field pl-9 ${validationErrors.has("cotacaoNegociacao") ? "border-destructive ring-1 ring-destructive" : ""}`}
                       />
                     </div>
@@ -1643,7 +1643,7 @@ export default function CadastrarTransacaoPage() {
                               type="text"
                               value={resgateCotacaoNeg}
                               onChange={(e) => setResgateCotacaoNeg(formatCotacao4(e.target.value))}
-                              placeholder="0,00"
+                              placeholder="0,0000"
                               className="input-field pl-9"
                             />
                           </div>
