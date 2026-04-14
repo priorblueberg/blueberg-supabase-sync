@@ -1,33 +1,36 @@
 
 
-## Bug: Pagamento trimestral aparecendo em 13/04/2026
+## Correção: Rentabilidade quebrada para títulos "No Vencimento"
 
 ### Causa raiz
 
-O engine passa `effectiveEnd` (= `2026-12-31`, data do vencimento) como parâmetro `dataCalculo` para `gerarDatasPagamentoJuros`. Isso faz a funcao gerar datas de pagamento futuras como `2026-06-30`, `2026-09-30` e `2026-12-31`.
-
-Porem, o calendario disponivel so vai ate `2026-04-13` (data de hoje). Quando `ajustarParaDiaUtil("2026-06-30")` e chamada, ela faz busca binaria no calendario e encontra `2026-04-13` como a data mais proxima. Como essa data e dia util, retorna `"2026-04-13"` como "dia util ajustado" para o pagamento de junho.
-
-Resultado: `datasPagamento` contem `"2026-04-13"` indevidamente, e o engine calcula juros (R$ 71,78) nessa data.
-
-### Correcao
-
-**Arquivo:** `src/lib/rendaFixaEngine.ts`, linha 276
-
-Trocar `effectiveEnd` por `endDate` na chamada a `gerarDatasPagamentoJuros`:
+A alteração anterior separou `jurosPago` do `resgatesTotal` no `isFinalDay` para que Proventos funcionasse. Porém, na linha 492, o `valorCota1` (que determina a rentabilidade) passou a usar apenas `resgatesTotal` (capital), excluindo juros:
 
 ```ts
-// Antes:
-gerarDatasPagamentoJuros(dataInicio, vencimento, pagamento, calendario, effectiveEnd)
-
-// Depois:
-gerarDatasPagamentoJuros(dataInicio, vencimento, pagamento, calendario, endDate)
+// Linha 490-492 — ANTES da alteração, resgatesTotal incluía juros
+valorCota1 = saldoCotas2 > 0 ? resgatesTotal / saldoCotas2 : prevValorCota;
 ```
 
-Isso garante que datas de pagamento so serao geradas ate a data de calculo real (`dataCalculo`), nao ate o vencimento futuro. Como o calendario nunca contem datas alem de `endDate`, a funcao `ajustarParaDiaUtil` sempre tera dados validos para trabalhar.
+Agora `resgatesTotal = patrimônio - jurosPago`, então a cota final fica menor e a rentabilidade zera ou fica errada.
+
+### Correção
+
+**Arquivo:** `src/lib/rendaFixaEngine.ts`, linha 492
+
+Incluir `jurosPago` no cálculo do valor da cota no dia final:
+
+```ts
+// De:
+valorCota1 = saldoCotas2 > 0 ? resgatesTotal / saldoCotas2 : prevValorCota;
+
+// Para:
+valorCota1 = saldoCotas2 > 0 ? (resgatesTotal + jurosPago) / saldoCotas2 : prevValorCota;
+```
+
+Isso mantém a decomposição correta para Proventos (`jurosPago` separado) enquanto preserva o valor da cota total para cálculo de rentabilidade.
 
 ### Impacto
-- O pagamento espurio em 13/04/2026 desaparece.
-- Pagamentos passados ja processados (como 2026-03-31 trimestral) continuam corretos.
-- Nenhum outro titulo e afetado, pois para titulos ja vencidos `endDate == effectiveEnd`.
+- Rentabilidade dos títulos "No Vencimento" volta ao normal (DPGE UBS, CDB Bradesco).
+- Proventos continua listando o juros corretamente (usa `pagamentoJuros`, não `valorCota`).
+- Títulos com pagamento periódico não são afetados (já usavam o branch `isPagamento`).
 
