@@ -279,13 +279,8 @@ export default function CarteiraCambioPage() {
 
         if (myVersion !== calcVersionRef.current) { setLoading(false); return; }
 
-        // Compute carteira TWR using carteiraRendaFixaEngine
-        const carteiraResult = calcularCarteiraRendaFixa({
-          productRows: allProdRows as any,
-          calendario,
-          dataInicio,
-          dataCalculo,
-        });
+        // Compute carteira TWR locally (includes resgates in base)
+        const carteiraResult = calcularCarteiraCambio(allProdRows, calendario, dataInicio, dataCalculo);
         setCarteiraRows(carteiraResult);
 
         if (myVersion !== calcVersionRef.current) return;
