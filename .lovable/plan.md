@@ -1,75 +1,39 @@
 
-## Diagnóstico
 
-A divergência atual não parece mais ser de “aniversário perdido”. O problema mais provável agora está no FIFO após o resgate de 22/01/2025:
+## Add anniversary interest payments to Poupança detail dialog
 
-- o engine já consegue deixar um lote ativo com:
-  - `valorPrincipal = 0`
-  - `valorAtual > 0`
-  - `rendimentoAcumulado > 0`
-- isso acontece quando o resgate consome todo o principal, mas sobra rendimento no lote
+### What changes
 
-Hoje, no loop de resgate de `src/lib/poupancaEngine.ts`, o lote é ignorado se:
+When the detail dialog opens for a Poupança asset (identified by `modalidade === "Poupança"`), it will also display "Pagamento de Juros" rows on anniversary dates, interleaved chronologically with the existing movimentações.
 
-```ts
-if (lote.valorPrincipal <= 0.01) continue;
-```
+### How
 
-Ou seja: em resgates futuros, o engine não consome esses lotes “só com rendimento”, mesmo eles ainda tendo saldo econômico. O resultado é:
+**1. Extend `PosicaoDetalheData` interface** (`src/components/PosicaoDetalheDialog.tsx`)
+- Add `modalidade` field (already available from `getDetalheData`)
 
-- lotes mais novos são consumidos antes da hora
-- a base remanescente do aniversário de 23/01 fica menor do que no Gorila
-- os pagamentos do dia 27 reaparecem, mas já sobre bases distorcidas
+**2. Extend `PosicaoDetalheDialog` Props** 
+- Accept an optional `jurosAniversario` array: `{ data: string; valor: number }[]`
+- These are pre-computed anniversary payment entries
 
-Isso explica bem o sintoma atual:
-- nosso 23/01/2025 = 158,02
-- Gorila = 164,45
+**3. Compute anniversary payments in `PosicaoConsolidadaPage.tsx`**
+- When opening the detail dialog for a Poupança product, run `calcularPoupancaDiario` (or use cached results) to get daily rows
+- Filter rows where `ganhoDiario > 0` — these are the anniversary dates
+- Pass them as `jurosAniversario` prop to the dialog
 
-## Plano de correção
+**4. Merge and display in the dialog**
+- In `fetchMovs`, after loading DB movimentações, merge the `jurosAniversario` entries as synthetic `Movimentacao` rows with:
+  - `tipo_movimentacao: "Pagamento de Juros"`
+  - `origem: "automatico"`
+  - `valor: <ganhoDiario value>`
+  - No edit/delete actions (read-only, like auto rows)
+- Sort all entries by date
+- Display with a distinct badge (e.g., "Juros" or "Auto")
 
-1. Ajustar o FIFO da Poupança em `src/lib/poupancaEngine.ts`
-   - trocar o critério de elegibilidade do lote no resgate:
-   ```ts
-   if (lote.valorAtual <= 0.01) continue;
-   ```
-   em vez de usar `valorPrincipal`
-   - manter a ordem FIFO por data de aplicação
-   - continuar consumindo pelo saldo econômico do lote (`valorAtual`)
+### Files modified
+- `src/components/PosicaoDetalheDialog.tsx` — add `modalidade` to data interface, accept and merge juros rows
+- `src/pages/PosicaoConsolidadaPage.tsx` — compute and pass juros data when opening dialog for Poupança
 
-2. Revisar os três cenários do loop de resgate
-   - resgate cobre todo o lote: zera lote
-   - resgate cobre todo o principal mas não todo o saldo: lote continua só com saldo remanescente
-   - resgate parcial: reduz saldo corretamente sem mexer em aniversários
+### What stays the same
+- Non-Poupança assets show the same dialog as today
+- No changes to poupancaEngine, proventos page, or any other engine
 
-3. Alinhar a função auxiliar exportada `resgatarPoupancaFIFO`
-   - ela ainda carrega lógica antiga e pode reintroduzir divergência no futuro
-   - se continuar exportada, deve refletir a mesma regra econômica do engine principal
-
-4. Validar os cenários já reportados
-   - saldo após inclusão da aplicação inicial anterior
-   - resgate de 02/01/2025
-   - pagamento de 23/01/2025
-   - pagamentos do dia 27
-   - confirmar que a Carteira Renda Fixa não é tocada
-
-## Detalhes técnicos
-
-**Arquivo principal:** `src/lib/poupancaEngine.ts`
-
-**Ponto crítico atual:**
-```ts
-if (lote.valorPrincipal <= 0.01) continue;
-```
-
-**Ajuste esperado:**
-```ts
-if (lote.valorAtual <= 0.01) continue;
-```
-
-## O que não será alterado
-
-- `carteiraRendaFixaEngine.ts`
-- páginas de carteira
-- página de Proventos
-- engine de Moedas
-- regra de aniversários já corrigida anteriormente
