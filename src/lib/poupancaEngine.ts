@@ -45,6 +45,7 @@ interface LoteState {
   offsetPrimeiroCiclo: boolean;
   valorPrincipal: number;
   valorAtual: number;
+  valorInicialCiclo: number;
   rendimentoAcumulado: number;
   ultimoAniversario: string | null;
   status: string;
