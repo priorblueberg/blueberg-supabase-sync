@@ -272,6 +272,7 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
       lote.valorAtual += rend;
       lote.rendimentoAcumulado += rend;
       lote.ultimoAniversario = dataTeoricaAniversario;
+      lote.valorInicialCiclo = lote.valorAtual; // novo ciclo começa com saldo atualizado
       rendimentoDia += rend;
     }
 
