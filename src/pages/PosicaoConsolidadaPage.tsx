@@ -77,7 +77,7 @@ let _cachedPeriodoInicio: string | null = null;
 let _cachedPoupancaEngineRows = new Map<number, DailyRow[]>();
 
 import { registerCacheReset } from "@/lib/resetCaches";
-registerCacheReset(() => { _cachedVersion = null; _cachedRows = []; _cachedRentabilidade = 0; _cachedCarteiraSummary = []; _cachedPeriodoInicio = null; });
+registerCacheReset(() => { _cachedVersion = null; _cachedRows = []; _cachedRentabilidade = 0; _cachedCarteiraSummary = []; _cachedPeriodoInicio = null; _cachedPoupancaEngineRows = new Map(); });
 
 export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
