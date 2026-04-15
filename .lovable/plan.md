@@ -1,37 +1,40 @@
 
 
-## Fix: Rentabilidade % da Poupança — restaurar composição diária patrimonial
+## Fix: Resgate parcial da Poupança consome rendimento indevidamente
 
-### Escopo
-Apenas `src/lib/poupancaEngine.ts`, linhas 338-346 e 363/381-383. Nenhum outro arquivo será alterado.
+### Causa raiz
+
+No resgate parcial FIFO (linhas 298-304 de `poupancaEngine.ts`), o código reduz `rendimentoAcumulado` proporcionalmente ao resgate. Isso elimina parte do rendimento já creditado.
+
+Gorila trata o resgate como subtração simples do `valorAtual` total, consumindo primeiro o principal e preservando o rendimento acumulado.
 
 ### Alteração
 
-Substituir o cálculo de rentabilidade simples (linhas 338-346) pela composição diária patrimonial:
+**Arquivo:** `src/lib/poupancaEngine.ts`, linhas 298-304
 
 **Antes:**
 ```ts
-const aporteLiquido = totalAplicacoes - totalResgates;
-rentAcum2 = aporteLiquido > 0.01 ? ganhoAcumulado / aporteLiquido : 0;
-const prevRentAcum = idx > 0 ? rows[idx - 1].rentAcumulada2 : 0;
-const rentDiariaPct = (1 + prevRentAcum) > 0.0000001
-  ? (1 + rentAcum2) / (1 + prevRentAcum) - 1
-  : 0;
+const proporcao = restante / lote.valorPrincipal;
+lote.valorPrincipal -= restante;
+lote.rendimentoAcumulado -= lote.rendimentoAcumulado * proporcao;
+lote.valorAtual = lote.valorPrincipal + lote.rendimentoAcumulado;
+restante = 0;
+frontierLote = lote;
 ```
 
 **Depois:**
 ```ts
-const prevLiquido = idx > 0 ? rows[idx - 1].liquido : 0;
-const baseRentabilidade = prevLiquido + mov.aplicacoes;
-const rentDiariaPct = baseRentabilidade > 0.01 ? ganhoDiario / baseRentabilidade : 0;
-rentAcum2 = (1 + rentAcum2) * (1 + rentDiariaPct) - 1;
+lote.valorPrincipal -= restante;
+lote.valorAtual = lote.valorPrincipal + lote.rendimentoAcumulado;
+restante = 0;
+frontierLote = lote;
 ```
 
-A variável `rentAcum2` passa a ser inicializada como `0` (já é) e acumulada por composição. Os campos do DailyRow (`rentabilidadeAcumuladaPct`, `rentAcumulada2`, `rentDiariaPct`, `rentabilidadeDiaria`) permanecem mapeados para os mesmos valores — nenhuma interface muda.
+Remove a linha que subtrai `rendimentoAcumulado * proporcao`. O rendimento já creditado no aniversário é preservado integralmente, e apenas o principal é consumido pelo resgate.
 
 ### O que NÃO muda
+- Resgate total (lote inteiro) continua zerando tudo
 - Nenhuma carteira consolidada
-- `carteiraRendaFixaEngine.ts`
 - Nenhum outro engine ou página
-- `ganhoDiario` e `ganhoAcumulado` em R$ permanecem iguais
+- `carteiraRendaFixaEngine.ts` intocado
 
