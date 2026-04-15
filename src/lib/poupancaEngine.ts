@@ -287,25 +287,21 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
 
       for (const lote of sortedActive) {
         if (restante <= 0.01) break;
-        if (lote.valorPrincipal <= 0.01) continue;
+        if (lote.valorAtual <= 0.01) continue;
 
         if (restante >= lote.valorAtual - 0.01) {
+          // Resgate consome todo o saldo econômico do lote
           restante -= lote.valorAtual;
           lote.valorAtual = 0;
           lote.valorPrincipal = 0;
           lote.rendimentoAcumulado = 0;
           lote.status = "resgatado";
-        } else if (restante >= lote.valorPrincipal - 0.01) {
-          // Resgate consome todo o principal mas não todo o valorAtual
-          restante -= lote.valorPrincipal;
-          lote.valorPrincipal = 0;
-          lote.valorAtual = lote.rendimentoAcumulado;
-          // Lote continua ativo apenas com rendimento residual
-          restante = 0;
-          frontierLote = lote;
         } else {
-          lote.valorPrincipal -= restante;
-          lote.valorAtual = lote.valorPrincipal + lote.rendimentoAcumulado;
+          // Resgate parcial: consome do saldo econômico (valorAtual)
+          const proporcao = restante / lote.valorAtual;
+          lote.valorAtual -= restante;
+          lote.valorPrincipal = Math.max(0, lote.valorPrincipal - restante);
+          lote.rendimentoAcumulado = Math.max(0, lote.valorAtual - lote.valorPrincipal);
           restante = 0;
           frontierLote = lote;
         }
@@ -418,21 +414,19 @@ export function resgatarPoupancaFIFO(
 
   for (const lote of sorted) {
     if (restante <= 0) break;
+    if (lote.valorAtual <= 0.01) continue;
 
-    const disponivel = lote.valorPrincipal;
-
-    if (restante >= disponivel - 0.01) {
-      valorResgatado += disponivel;
-      restante -= disponivel;
+    if (restante >= lote.valorAtual - 0.01) {
+      valorResgatado += lote.valorAtual;
+      restante -= lote.valorAtual;
       lote.status = "resgatado";
       lote.valorAtual = 0;
       lote.valorPrincipal = 0;
       lote.rendimentoAcumulado = 0;
     } else {
-      const proporcao = restante / lote.valorPrincipal;
-      lote.valorPrincipal -= restante;
-      lote.rendimentoAcumulado -= lote.rendimentoAcumulado * proporcao;
-      lote.valorAtual = lote.valorPrincipal + lote.rendimentoAcumulado;
+      lote.valorAtual -= restante;
+      lote.valorPrincipal = Math.max(0, lote.valorPrincipal - restante);
+      lote.rendimentoAcumulado = Math.max(0, lote.valorAtual - lote.valorPrincipal);
       valorResgatado += restante;
       restante = 0;
     }
