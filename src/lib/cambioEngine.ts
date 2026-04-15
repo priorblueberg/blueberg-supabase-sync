@@ -84,7 +84,7 @@ export function calcularCambioDiario(input: CambioEngineInput): CambioDailyRow[]
     const ganhoDiarioBRL = valorBRL - (prevQtyMoeda * lastCotacao + aplicacoesBRL - resgatesBRL);
 
     const prevValor = prevQtyMoeda * lastCotacao;
-    const base = prevValor + aplicacoesBRL;
+    const base = prevValor + aplicacoesBRL - resgatesBRL;
     const rentDiariaPct = base > 0.01 ? ganhoDiarioBRL / base : 0;
 
     rentAcumFactor *= (1 + rentDiariaPct);
