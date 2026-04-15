@@ -311,24 +311,6 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
         }
       }
 
-      // Absorção pós-resgate: quando há consumo parcial (lote-fronteira),
-      // o próximo lote ativo na ordem FIFO é absorvido pelo fronteira,
-      // mantendo o aniversário do fronteira e eliminando o absorvido.
-      if (frontierLote) {
-        const nextLote = sortedActive.find(
-          (l) => l.status === "ativo" && l.id !== frontierLote!.id && l.valorAtual > 0.01
-            && l.dataAplicacao > frontierLote!.dataAplicacao
-        );
-        if (nextLote) {
-          frontierLote.valorPrincipal += nextLote.valorPrincipal;
-          frontierLote.valorAtual += nextLote.valorAtual;
-          frontierLote.rendimentoAcumulado += nextLote.rendimentoAcumulado;
-          nextLote.valorAtual = 0;
-          nextLote.valorPrincipal = 0;
-          nextLote.rendimentoAcumulado = 0;
-          nextLote.status = "resgatado";
-        }
-      }
     }
 
     // Calculate totals
