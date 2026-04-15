@@ -199,7 +199,9 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                             <TableCell className="whitespace-nowrap">{fmtQty(m.quantidade)}</TableCell>
                             <TableCell className="whitespace-nowrap">{m.preco_unitario != null ? (isMoedasCategoria(data.nome) ? fmtBrl4(m.preco_unitario) : fmtBrl(m.preco_unitario)) : "—"}</TableCell>
                             <TableCell>
-                              {isAuto ? <Badge variant="secondary">Auto</Badge> : "Manual"}
+                              {m.tipo_movimentacao === "Pagamento de Juros"
+                                ? <Badge variant="outline" className="text-green-600 border-green-600">Juros</Badge>
+                                : isAuto ? <Badge variant="secondary">Auto</Badge> : "Manual"}
                             </TableCell>
                             <TableCell className="text-right">
                               {!isAuto && (
