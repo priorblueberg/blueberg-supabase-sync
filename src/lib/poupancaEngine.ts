@@ -335,15 +335,11 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
     totalAplicacoes += mov.aplicacoes;
     totalResgates += mov.resgates;
 
-    // Rentabilidade acumulada % — Poupança usa retorno simples sobre aporte líquido
-    const aporteLiquido = totalAplicacoes - totalResgates;
-    rentAcum2 = aporteLiquido > 0.01 ? ganhoAcumulado / aporteLiquido : 0;
-
-    // Rentabilidade diária % (derivada da variação do acumulado)
-    const prevRentAcum = idx > 0 ? rows[idx - 1].rentAcumulada2 : 0;
-    const rentDiariaPct = (1 + prevRentAcum) > 0.0000001
-      ? (1 + rentAcum2) / (1 + prevRentAcum) - 1
-      : 0;
+    // Rentabilidade acumulada % — composição diária patrimonial
+    const prevLiquido = idx > 0 ? rows[idx - 1].liquido : 0;
+    const baseRentabilidade = prevLiquido + mov.aplicacoes;
+    const rentDiariaPct = baseRentabilidade > 0.01 ? ganhoDiario / baseRentabilidade : 0;
+    rentAcum2 = (1 + rentAcum2) * (1 + rentDiariaPct) - 1;
 
     const row: DailyRow = {
       data: date,
