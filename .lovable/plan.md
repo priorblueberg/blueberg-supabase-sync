@@ -1,39 +1,34 @@
 
 
-## Add anniversary interest payments to Poupança detail dialog
+## Fix: Change poupança resgate order from FIFO to LIFO
 
-### What changes
+### Root cause
 
-When the detail dialog opens for a Poupança asset (identified by `modalidade === "Poupança"`), it will also display "Pagamento de Juros" rows on anniversary dates, interleaved chronologically with the existing movimentações.
+The R$ 1,000 resgate on 02/01/2025 is being consumed from the **oldest** lot (dia 23, FIFO) but Gorila consumes from the **newest** lot (dia 27, LIFO). This shifts the balance between lots, causing all subsequent rendimentos to diverge:
+- Dia 23: Blueberg lower (158.02 vs 164.45) because its base was reduced
+- Dia 27: Blueberg higher (128.59 vs 122.42) because its base was untouched
 
-### How
+### Change
 
-**1. Extend `PosicaoDetalheData` interface** (`src/components/PosicaoDetalheDialog.tsx`)
-- Add `modalidade` field (already available from `getDetalheData`)
+**File:** `src/lib/poupancaEngine.ts`, line 285
 
-**2. Extend `PosicaoDetalheDialog` Props** 
-- Accept an optional `jurosAniversario` array: `{ data: string; valor: number }[]`
-- These are pre-computed anniversary payment entries
+Change the sort order of active lots for resgate processing from ascending (FIFO) to **descending** (LIFO):
 
-**3. Compute anniversary payments in `PosicaoConsolidadaPage.tsx`**
-- When opening the detail dialog for a Poupança product, run `calcularPoupancaDiario` (or use cached results) to get daily rows
-- Filter rows where `ganhoDiario > 0` — these are the anniversary dates
-- Pass them as `jurosAniversario` prop to the dialog
+```ts
+// Before:
+const sortedActive = [...activeLotes].sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao));
 
-**4. Merge and display in the dialog**
-- In `fetchMovs`, after loading DB movimentações, merge the `jurosAniversario` entries as synthetic `Movimentacao` rows with:
-  - `tipo_movimentacao: "Pagamento de Juros"`
-  - `origem: "automatico"`
-  - `valor: <ganhoDiario value>`
-  - No edit/delete actions (read-only, like auto rows)
-- Sort all entries by date
-- Display with a distinct badge (e.g., "Juros" or "Auto")
+// After:
+const sortedActive = [...activeLotes].sort((a, b) => b.dataAplicacao.localeCompare(a.dataAplicacao));
+```
 
-### Files modified
-- `src/components/PosicaoDetalheDialog.tsx` — add `modalidade` to data interface, accept and merge juros rows
-- `src/pages/PosicaoConsolidadaPage.tsx` — compute and pass juros data when opening dialog for Poupança
+Also update the comments on lines 279-282 to reflect LIFO instead of FIFO.
+
+The `resgatarPoupancaFIFO` export function (lines 390+) should also be updated to LIFO for consistency, along with its name.
 
 ### What stays the same
-- Non-Poupança assets show the same dialog as today
-- No changes to poupancaEngine, proventos page, or any other engine
+- Rendimento calculation logic
+- Anniversary date logic
+- All other engines and pages
+- Proventos page (not touched)
 
