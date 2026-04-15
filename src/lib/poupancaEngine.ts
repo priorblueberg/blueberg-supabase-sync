@@ -175,6 +175,7 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
         offsetPrimeiroCiclo: diaOriginal >= 29,
         valorPrincipal: Number(l.valor_principal),
         valorAtual: Number(l.valor_principal),
+        valorInicialCiclo: Number(l.valor_principal),
         rendimentoAcumulado: 0,
         ultimoAniversario: null,
         status: "ativo",
@@ -243,14 +244,14 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
       let _debugSource = "none";
       let _debugTaxa = 0;
       if (serie195 !== undefined) {
-        rendBruto = lote.valorAtual * (serie195 / 100);
+        rendBruto = lote.valorInicialCiclo * (serie195 / 100);
         _debugSource = "serie195";
         _debugTaxa = serie195;
       } else {
         const fallbackRates = getFallbackRatesOnDate(dataInicioCiclo, selicMap, trMap);
         if (fallbackRates) {
           rendBruto = calcRendimentoMensal(
-            lote.valorAtual,
+            lote.valorInicialCiclo,
             fallbackRates.selicAnual,
             fallbackRates.trMensal
           );
