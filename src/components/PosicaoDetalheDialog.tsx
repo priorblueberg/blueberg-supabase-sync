@@ -105,14 +105,14 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
     const jurosRows: Movimentacao[] = jurosAniversario.map((j, idx) => ({
       id: `juros-${j.data}-${idx}`,
       data: j.data,
-      tipo_movimentacao: "Pagamento de Juros",
+      tipo_movimentacao: "Rendimentos",
       valor: j.valor,
       quantidade: null,
       preco_unitario: null,
       origem: "automatico",
     }));
 
-    const combined = [...deduped, ...jurosRows].sort((a, b) => a.data.localeCompare(b.data));
+    const combined = [...deduped, ...jurosRows].sort((a, b) => b.data.localeCompare(a.data));
     setMovs(combined);
     setLoading(false);
   }
@@ -199,9 +199,7 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                             <TableCell className="whitespace-nowrap">{fmtQty(m.quantidade)}</TableCell>
                             <TableCell className="whitespace-nowrap">{m.preco_unitario != null ? (isMoedasCategoria(data.nome) ? fmtBrl4(m.preco_unitario) : fmtBrl(m.preco_unitario)) : "—"}</TableCell>
                             <TableCell>
-                              {m.tipo_movimentacao === "Pagamento de Juros"
-                                ? <Badge variant="outline" className="text-green-600 border-green-600">Juros</Badge>
-                                : isAuto ? <Badge variant="secondary">Auto</Badge> : "Manual"}
+                              {isAuto ? "Auto" : "Manual"}
                             </TableCell>
                             <TableCell className="text-right">
                               {!isAuto && (
