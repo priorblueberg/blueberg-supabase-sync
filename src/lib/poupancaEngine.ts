@@ -296,9 +296,7 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
           lote.rendimentoAcumulado = 0;
           lote.status = "resgatado";
         } else {
-          const proporcao = restante / lote.valorPrincipal;
           lote.valorPrincipal -= restante;
-          lote.rendimentoAcumulado -= lote.rendimentoAcumulado * proporcao;
           lote.valorAtual = lote.valorPrincipal + lote.rendimentoAcumulado;
           restante = 0;
           frontierLote = lote;
