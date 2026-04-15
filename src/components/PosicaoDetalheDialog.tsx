@@ -101,7 +101,19 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
       deduped.push(row);
     }
 
-    setMovs(deduped);
+    // Merge synthetic juros rows
+    const jurosRows: Movimentacao[] = jurosAniversario.map((j, idx) => ({
+      id: `juros-${j.data}-${idx}`,
+      data: j.data,
+      tipo_movimentacao: "Pagamento de Juros",
+      valor: j.valor,
+      quantidade: null,
+      preco_unitario: null,
+      origem: "automatico",
+    }));
+
+    const combined = [...deduped, ...jurosRows].sort((a, b) => a.data.localeCompare(b.data));
+    setMovs(combined);
     setLoading(false);
   }
 
