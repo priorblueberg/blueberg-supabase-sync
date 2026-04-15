@@ -1,33 +1,48 @@
 
 
-## Fix: Cotação com 4 casas decimais — pontos faltantes
+## Correção do cálculo de ganho diário — metodologia fluxo de caixa
 
-### Diagnóstico
+### Simulação corrigida (29/02/2024)
 
-A alteração anterior corrigiu o campo de input e o pre-fill, mas **dois pontos** ficaram de fora:
+Movimentações:
+- Aplicação Inicial: R$ 49.833,00 / 4,9833 = 10.000 USD
+- Aplicação: R$ 24.849,50 / 4,9699 = 5.000 USD
+- Resgate: R$ 4.999,90 / 4,9999 = 1.000 USD
+- PTAX fechamento: 4,9833
 
-1. **Edição de movimentação existente (linha 657):** Ao carregar uma movimentação para edição, o `preco_unitario` é formatado com `formatCurrency` (2 casas). Para moedas, deve usar `formatCotacao4` (4 casas). Isso faz com que ao editar um câmbio, a cotação apareça truncada.
+Posição final: 14.000 USD
 
-2. **Exibição na tabela de detalhes (`PosicaoDetalheDialog.tsx`):** A coluna "Preço Unit." usa `fmtBrl` que formata com 2 casas decimais. Para moedas, deve exibir 4 casas.
+```text
+Ganho = valorFinal - (valorInicial + aplicações - resgates)
+      = 14.000 × 4,9833 - (0 + 49.833,00 + 24.849,50 - 4.999,90)
+      = 69.766,20 - 69.682,60
+      = R$ 83,60 ✓  (igual ao Gorila)
+```
 
-### Observação sobre o dado existente
+A abordagem de preço médio com arredondamento gera diferença (R$ 83,65 com 5 casas, R$ 84,10 com 4 casas). A metodologia correta é **fluxo de caixa**: ganho = valor final − investimento líquido do dia. Não precisa de preço médio.
 
-O ativo "Dólar Em Espécie" já está salvo com `preco_unitario = 4.97` e `quantidade = 10.026,96`. O saldo de R$ 49.967,36 vem de `10.026,96 × PTAX(4,9833)`. O valor correto de R$ 49.833,00 só aparecerá quando o usuário re-salvar a transação com a cotação correta de 4 casas (ex: 4,9833), que produzirá `quantidade = 49.833 / 4,9833 = 10.000,00`.
+### Solução simplificada
 
-### Alterações
+**Arquivo:** `src/lib/cambioEngine.ts`
 
-**Arquivo 1: `src/pages/CadastrarTransacaoPage.tsx`**
+A fórmula atual já está quase certa (ganhoExistente + ganhoNovasCompras), mas falta subtrair o **ganho dos resgates**. A fórmula correta com fluxo de caixa:
 
-- Linha ~657: Ao carregar movimentação para edição, verificar se é moeda. Se sim, usar `formatCotacao4(Math.round(mov.preco_unitario * 10000).toString())` ao invés de `formatCurrency(Math.round(mov.preco_unitario * 100).toString())`.
+```ts
+// Antes de atualizar qtyMoeda:
+const prevValor = prevQtyMoeda * lastCotacao;
 
-**Arquivo 2: `src/components/PosicaoDetalheDialog.tsx`**
+// Depois de atualizar qtyMoeda:
+const valorBRL = qtyMoeda * cotacaoDia;
+const ganhoDiarioBRL = valorBRL - (prevValor + aplicacoesBRL - resgatesBRL);
+```
 
-- Receber a `categoriaId` (já disponível em `PosicaoDetalheData`).
-- Na coluna "Preço Unit.", se a categoria for moedas, formatar com 4 casas decimais ao invés de 2.
+Isso substitui os cálculos de `ganhoExistente` e `ganhoNovasCompras` por uma fórmula única que:
+- Captura a revalorização da posição existente
+- Captura o spread entre preço de compra e PTAX no dia da aplicação
+- Captura o ganho/perda do resgate vs custo
+- **Sem arredondamento de preço médio** — resultado exato
 
-### Dados técnicos
+A base da rentabilidade diária: `base = prevValor + aplicacoesBRL` (sem mudar).
 
-- A categoria "Moedas" é identificada por `categoriaId` que já está em `PosicaoDetalheData`.
-- Precisamos saber o ID da categoria moedas ou verificar por nome do produto. A forma mais simples: checar se `data.categoriaId` corresponde à categoria moedas, ou verificar se o nome contém "Dólar"/"Euro".
-- Para `PosicaoDetalheDialog`, basta criar uma função `fmtPrecoUnit` que usa 4 casas quando é moeda.
+Nenhuma variável nova, nenhuma interface alterada. Só substituir 4 linhas de cálculo por 1.
 
