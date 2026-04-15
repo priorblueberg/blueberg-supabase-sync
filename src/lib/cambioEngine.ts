@@ -80,7 +80,12 @@ export function calcularCambioDiario(input: CambioEngineInput): CambioDailyRow[]
 
     const valorBRL = qtyMoeda * cotacaoDia;
 
-    const ganhoDiarioBRL = prevQtyMoeda * (cotacaoDia - lastCotacao);
+    // Gain from existing position + gain from new purchases revalued at closing rate
+    const ganhoExistente = prevQtyMoeda * (cotacaoDia - lastCotacao);
+    const ganhoNovasCompras = aplicacoesMoeda > 0
+      ? aplicacoesMoeda * cotacaoDia - aplicacoesBRL
+      : 0;
+    const ganhoDiarioBRL = ganhoExistente + ganhoNovasCompras;
 
     const prevValor = prevQtyMoeda * lastCotacao;
     const base = prevValor + aplicacoesBRL;
