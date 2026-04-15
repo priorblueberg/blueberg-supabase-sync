@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularCambioDiario, getCotacaoTable, getCurrencyCode, type CambioDailyRow } from "@/lib/cambioEngine";
-import { calcularCarteiraRendaFixa, CarteiraRFRow } from "@/lib/carteiraRendaFixaEngine";
+import { CarteiraRFRow } from "@/lib/carteiraRendaFixaEngine";
 import { buildCdiSeries, CdiRecord } from "@/lib/cdiCalculations";
 import { buildDetailRowsFromEngine } from "@/lib/detailRowsBuilder";
 import RentabilidadeDetailTable from "@/components/RentabilidadeDetailTable";
