@@ -50,6 +50,7 @@ interface Props {
   userId: string;
   dataReferenciaISO: string;
   onDataChanged: () => void;
+  jurosAniversario?: { data: string; valor: number }[];
 }
 
 function fmtBrl(v: number) {
