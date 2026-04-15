@@ -289,12 +289,20 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
         if (restante <= 0.01) break;
         if (lote.valorPrincipal <= 0.01) continue;
 
-        if (restante >= lote.valorPrincipal - 0.01) {
-          restante -= lote.valorPrincipal;
+        if (restante >= lote.valorAtual - 0.01) {
+          restante -= lote.valorAtual;
           lote.valorAtual = 0;
           lote.valorPrincipal = 0;
           lote.rendimentoAcumulado = 0;
           lote.status = "resgatado";
+        } else if (restante >= lote.valorPrincipal - 0.01) {
+          // Resgate consome todo o principal mas não todo o valorAtual
+          restante -= lote.valorPrincipal;
+          lote.valorPrincipal = 0;
+          lote.valorAtual = lote.rendimentoAcumulado;
+          // Lote continua ativo apenas com rendimento residual
+          restante = 0;
+          frontierLote = lote;
         } else {
           lote.valorPrincipal -= restante;
           lote.valorAtual = lote.valorPrincipal + lote.rendimentoAcumulado;
