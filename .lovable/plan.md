@@ -1,39 +1,72 @@
 
 
-## Fix: Carteira Moedas — base de rentabilidade não subtrai resgates
+## Diagnóstico: Saldo divergente na Poupança com lote anterior
 
 ### Causa raiz
 
-A `CarteiraCambioPage` usa `calcularCarteiraRendaFixa` para calcular o TWR da carteira. Essa função calcula a base como `prevLiquido + aplicacoes`, sem subtrair `resgates`. As adapted rows já enviam `resgates` (linha 247), mas o engine ignora esse campo.
+No resgate FIFO (linhas 288-303), quando um lote é **totalmente consumido**, o código subtrai apenas o `valorPrincipal` do `restante`:
 
-Como a restrição é **não mexer em `carteiraRendaFixaEngine.ts`**, a solução é criar uma função de cálculo TWR local na `CarteiraCambioPage` que inclua resgates na base.
+```ts
+restante -= lote.valorPrincipal;  // linha 293
+```
+
+Mas o lote já tem rendimento acumulado (aniversários creditados). O resgate deveria consumir o `valorAtual` (principal + rendimento), não apenas o principal.
+
+**Exemplo com seus dados:**
+
+- Lote 0: 11/01/2024, principal 15.000, com ~150 de rendimento acumulado até 22/03 → valorAtual ≈ 15.150
+- Lote 1: 23/02/2024, principal 50.000
+- Resgate 22/03/2024: 40.000
+
+**Comportamento atual (errado):**
+- Lote 0: `restante -= 15.000` (ignora os ~150 de rendimento) → restante = 25.000
+- Lote 1: parcial, principal passa a 25.000
+- Os 150 de rendimento do Lote 0 são **perdidos** (zerados)
+
+**Comportamento Gorila (correto):**
+- Lote 0: `restante -= 15.150` (consome valor total) → restante = 24.850
+- Lote 1: parcial, principal passa a 25.150 (150 a mais)
+- Esse excedente de ~150 continua rendendo nos meses seguintes, acumulando a diferença de ~114 que você vê em 02/01/2025
 
 ### Alteração
 
-**Arquivo:** `src/pages/CarteiraCambioPage.tsx`
+**Arquivo:** `src/lib/poupancaEngine.ts`, linhas 292-297
 
-1. Criar uma função `calcularCarteiraCambio` local (ou inline) que replica a lógica de `calcularCarteiraRendaFixa`, mas com `baseRentabilidade = prevLiquido + aplicacoes - resgates`.
-
-2. Substituir a chamada `calcularCarteiraRendaFixa(...)` (linha 283) pela nova função.
-
-3. Remover o import de `calcularCarteiraRendaFixa` se não for mais necessário.
-
-**Lógica da nova função:**
+**Antes:**
 ```ts
-function calcularCarteiraCambio(
-  productRows: { data: string; diaUtil: boolean; liquido: number; aplicacoes: number; resgates: number; ganhoDiario: number }[][],
-  calendario: { data: string; dia_util: boolean }[],
-  dataInicio: string,
-  dataCalculo: string,
-): CarteiraRFRow[] {
-  // Mesma agregação que carteiraRendaFixaEngine, mas inclui resgates
-  // base = prevLiquido + aplicacoes - resgates
+if (restante >= lote.valorPrincipal - 0.01) {
+  restante -= lote.valorPrincipal;
+  lote.valorAtual = 0;
+  lote.valorPrincipal = 0;
+  lote.rendimentoAcumulado = 0;
+  lote.status = "resgatado";
 }
 ```
 
+**Depois:**
+```ts
+if (restante >= lote.valorAtual - 0.01) {
+  restante -= lote.valorAtual;
+  lote.valorAtual = 0;
+  lote.valorPrincipal = 0;
+  lote.rendimentoAcumulado = 0;
+  lote.status = "resgatado";
+} else if (restante >= lote.valorPrincipal - 0.01) {
+  // Resgate consome todo o principal mas não todo o valorAtual
+  restante -= lote.valorPrincipal;
+  lote.valorPrincipal = 0;
+  lote.valorAtual = lote.rendimentoAcumulado;
+  // Lote continua ativo apenas com rendimento residual
+  restante = 0;
+  frontierLote = lote;
+}
+```
+
+A condição parcial existente (linhas 298-303) permanece inalterada para o caso `restante < valorPrincipal`.
+
 ### O que NÃO muda
-- `carteiraRendaFixaEngine.ts` — intocado
-- Carteira de Renda Fixa — intocada
-- Engines de produtos individuais — intocados
-- Nenhuma outra página
+- Carteiras consolidadas
+- `carteiraRendaFixaEngine.ts`
+- Nenhum outro engine ou página
+- Resgate parcial (restante < valorPrincipal) — já corrigido anteriormente
 
