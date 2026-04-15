@@ -327,6 +327,9 @@ export default function PosicaoConsolidadaPage() {
           dataResgateTotal: product.resgate_total,
         });
 
+        // Cache engine rows for juros display in detail dialog
+        _cachedPoupancaEngineRows.set(product.codigo_custodia, engineRows);
+
         {
 
           allProductRows.push(engineRows);
