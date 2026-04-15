@@ -7,7 +7,7 @@ import { fetchIpcaRecordsBatch } from "@/lib/ipcaHelper";
 import { calcularCarteiraRendaFixa, CarteiraRFRow } from "@/lib/carteiraRendaFixaEngine";
 import { calcularPoupancaDiario, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import { calcularCambioDiario, getCurrencyCode, type CambioDailyRow } from "@/lib/cambioEngine";
-import { calcularCarteiraInvestimentos, ConsolidatedDailyRow } from "@/lib/carteiraInvestimentosEngine";
+import { ConsolidatedDailyRow } from "@/lib/carteiraInvestimentosEngine";
 import { buildCdiSeries, CdiRecord } from "@/lib/cdiCalculations";
 import { buildDetailRowsFromEngine } from "@/lib/detailRowsBuilder";
 import RentabilidadeDetailTable from "@/components/RentabilidadeDetailTable";
@@ -377,13 +377,22 @@ export default function CarteiraInvestimentosPage() {
 
         if (myVersion !== calcVersionRef.current) { setLoading(false); return; }
 
-        // 5. Consolidate
-        const consolidated = calcularCarteiraInvestimentos({
-          rfRows: rfResult,
-          cambioRows: cambioResult,
-          dataInicio: globalDataInicio,
-          dataCalculo: globalDataCalculo,
-        });
+        // 5. Consolidate — use the same engine as Posição Consolidada
+        const allProductRows = [...rfProdRows, ...cambioProdRows];
+        const consolidatedRF = allProductRows.length > 0
+          ? calcularCarteiraRendaFixa({ productRows: allProductRows as any, calendario, dataInicio: globalDataInicio, dataCalculo: globalDataCalculo })
+          : [];
+        const consolidated: ConsolidatedDailyRow[] = consolidatedRF.map(r => ({
+          data: r.data,
+          diaUtil: r.diaUtil,
+          patrimonio: r.liquido,
+          aplicacoes: 0,
+          resgates: 0,
+          ganhoDiarioRS: r.rentDiariaRS,
+          ganhoAcumuladoRS: r.rentAcumuladaRS,
+          rentDiariaPct: r.rentDiariaPct,
+          rentAcumuladaPct: r.rentAcumuladaPct,
+        }));
         setConsolidatedRows(consolidated);
 
         // 6. Build unified product list
