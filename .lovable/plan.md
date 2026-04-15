@@ -1,51 +1,37 @@
 
 
-## Fix: Rentabilidade Carteira de Investimentos (19,73% → 19,68%)
+## Fix: Rentabilidade % da Poupança — restaurar composição diária patrimonial
 
-### Causa raiz
+### Escopo
+Apenas `src/lib/poupancaEngine.ts`, linhas 338-346 e 363/381-383. Nenhum outro arquivo será alterado.
 
-A **Posição Consolidada** calcula a rentabilidade passando todos os produtos (RF + Câmbio) como um pool único para `calcularCarteiraRendaFixa` (linha 468), que usa `base = prevLiquido + aplicacoes` para o denominador diário.
+### Alteração
 
-A **Carteira de Investimentos** usa `calcularCarteiraInvestimentos`, que agrega a partir dos rows das sub-carteiras (que já são consolidados e **não carregam aplicações individuais** — `aplicacoes` é sempre 0). Resultado: o denominador é apenas `prevPatrimonio`, sem considerar fluxos intradiários, gerando divergência.
+Substituir o cálculo de rentabilidade simples (linhas 338-346) pela composição diária patrimonial:
 
-### Solução
-
-Eliminar o uso de `calcularCarteiraInvestimentos` na página e usar `calcularCarteiraRendaFixa` com todos os product rows combinados — exatamente como a Posição Consolidada faz.
-
-### Alterações
-
-**Arquivo:** `src/pages/CarteiraInvestimentosPage.tsx`
-
-1. Na seção "5. Consolidate" (linhas 380-387), substituir:
+**Antes:**
 ```ts
-const consolidated = calcularCarteiraInvestimentos({
-  rfRows: rfResult,
-  cambioRows: cambioResult,
-  dataInicio: globalDataInicio,
-  dataCalculo: globalDataCalculo,
-});
-```
-Por:
-```ts
-const allProductRows = [...rfProdRows, ...cambioProdRows];
-const consolidatedRF = allProductRows.length > 0
-  ? calcularCarteiraRendaFixa({ productRows: allProductRows as any, calendario, dataInicio: globalDataInicio, dataCalculo: globalDataCalculo })
-  : [];
-// Adapt CarteiraRFRow[] to ConsolidatedDailyRow[]
-const consolidated: ConsolidatedDailyRow[] = consolidatedRF.map(r => ({
-  data: r.data,
-  diaUtil: r.diaUtil,
-  patrimonio: r.liquido,
-  aplicacoes: 0,
-  resgates: 0,
-  ganhoDiarioRS: r.rentDiariaRS,
-  ganhoAcumuladoRS: r.rentAcumuladaRS,
-  rentDiariaPct: r.rentDiariaPct,
-  rentAcumuladaPct: r.rentAcumuladaPct,
-}));
+const aporteLiquido = totalAplicacoes - totalResgates;
+rentAcum2 = aporteLiquido > 0.01 ? ganhoAcumulado / aporteLiquido : 0;
+const prevRentAcum = idx > 0 ? rows[idx - 1].rentAcumulada2 : 0;
+const rentDiariaPct = (1 + prevRentAcum) > 0.0000001
+  ? (1 + rentAcum2) / (1 + prevRentAcum) - 1
+  : 0;
 ```
 
-2. Remover import de `calcularCarteiraInvestimentos` (linha 10)
+**Depois:**
+```ts
+const prevLiquido = idx > 0 ? rows[idx - 1].liquido : 0;
+const baseRentabilidade = prevLiquido + mov.aplicacoes;
+const rentDiariaPct = baseRentabilidade > 0.01 ? ganhoDiario / baseRentabilidade : 0;
+rentAcum2 = (1 + rentAcum2) * (1 + rentDiariaPct) - 1;
+```
 
-Isso garante que ambas as páginas usem exatamente a mesma fórmula. A tabela de rentabilidade detalhada também receberá os valores corretos pois consome os `consolidatedRows`.
+A variável `rentAcum2` passa a ser inicializada como `0` (já é) e acumulada por composição. Os campos do DailyRow (`rentabilidadeAcumuladaPct`, `rentAcumulada2`, `rentDiariaPct`, `rentabilidadeDiaria`) permanecem mapeados para os mesmos valores — nenhuma interface muda.
+
+### O que NÃO muda
+- Nenhuma carteira consolidada
+- `carteiraRendaFixaEngine.ts`
+- Nenhum outro engine ou página
+- `ganhoDiario` e `ganhoAcumulado` em R$ permanecem iguais
 
