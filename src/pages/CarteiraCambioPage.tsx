@@ -48,6 +48,49 @@ interface CarteiraInfo {
   resgate_total: string | null;
 }
 
+function calcularCarteiraCambio(
+  productRows: { data: string; diaUtil: boolean; liquido: number; aplicacoes: number; resgates: number; ganhoDiario: number }[][],
+  calendario: { data: string; dia_util: boolean }[],
+  dataInicio: string,
+  dataCalculo: string,
+): CarteiraRFRow[] {
+  const dateAgg = new Map<string, { liquido: number; liquido2: number; aplicacoes: number; resgates: number; rentDiariaRS: number }>();
+  for (const rows of productRows) {
+    for (const row of rows) {
+      if (row.data < dataInicio || row.data > dataCalculo) continue;
+      const existing = dateAgg.get(row.data) || { liquido: 0, liquido2: 0, aplicacoes: 0, resgates: 0, rentDiariaRS: 0 };
+      existing.liquido += row.liquido;
+      existing.liquido2 += row.liquido;
+      existing.aplicacoes += row.aplicacoes;
+      existing.resgates += row.resgates || 0;
+      existing.rentDiariaRS += row.ganhoDiario;
+      dateAgg.set(row.data, existing);
+    }
+  }
+  const sorted = [...calendario]
+    .filter(c => c.data >= dataInicio && c.data <= dataCalculo)
+    .sort((a, b) => a.data.localeCompare(b.data));
+  const result: CarteiraRFRow[] = [];
+  let rentAcumuladaRS = 0;
+  let rentAcumuladaPct = 0;
+  let prevLiquido = 0;
+  for (const cal of sorted) {
+    const agg = dateAgg.get(cal.data);
+    if (!agg) {
+      result.push({ data: cal.data, diaUtil: cal.dia_util, liquido: 0, liquido2: 0, rentDiariaRS: 0, rentDiariaPct: 0, rentAcumuladaRS, rentAcumuladaPct });
+      continue;
+    }
+    const { liquido, liquido2, aplicacoes, resgates, rentDiariaRS } = agg;
+    const baseRentabilidade = prevLiquido + aplicacoes - resgates;
+    const rentDiariaPct = baseRentabilidade > 0.01 ? rentDiariaRS / baseRentabilidade : 0;
+    rentAcumuladaRS += rentDiariaRS;
+    rentAcumuladaPct = (1 + rentAcumuladaPct) * (1 + rentDiariaPct) - 1;
+    result.push({ data: cal.data, diaUtil: cal.dia_util, liquido, liquido2, rentDiariaRS, rentDiariaPct, rentAcumuladaRS, rentAcumuladaPct });
+    prevLiquido = liquido;
+  }
+  return result;
+}
+
 interface CustodiaProduct {
   id: string;
   codigo_custodia: number;
