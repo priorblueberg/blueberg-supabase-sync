@@ -50,6 +50,7 @@ interface Props {
   userId: string;
   dataReferenciaISO: string;
   onDataChanged: () => void;
+  jurosAniversario?: { data: string; valor: number }[];
 }
 
 function fmtBrl(v: number) {
@@ -68,7 +69,7 @@ function isMoedasCategoria(nome: string): boolean {
   return nome.toLowerCase().includes("dólar") || nome.toLowerCase().includes("euro") || nome.toLowerCase().includes("dollar");
 }
 
-export default function PosicaoDetalheDialog({ open, onClose, data, userId, dataReferenciaISO, onDataChanged }: Props) {
+export default function PosicaoDetalheDialog({ open, onClose, data, userId, dataReferenciaISO, onDataChanged, jurosAniversario = [] }: Props) {
   const navigate = useNavigate();
   const [movs, setMovs] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(false);
@@ -100,7 +101,19 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
       deduped.push(row);
     }
 
-    setMovs(deduped);
+    // Merge synthetic juros rows
+    const jurosRows: Movimentacao[] = jurosAniversario.map((j, idx) => ({
+      id: `juros-${j.data}-${idx}`,
+      data: j.data,
+      tipo_movimentacao: "Pagamento de Juros",
+      valor: j.valor,
+      quantidade: null,
+      preco_unitario: null,
+      origem: "automatico",
+    }));
+
+    const combined = [...deduped, ...jurosRows].sort((a, b) => a.data.localeCompare(b.data));
+    setMovs(combined);
     setLoading(false);
   }
 
@@ -186,7 +199,9 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                             <TableCell className="whitespace-nowrap">{fmtQty(m.quantidade)}</TableCell>
                             <TableCell className="whitespace-nowrap">{m.preco_unitario != null ? (isMoedasCategoria(data.nome) ? fmtBrl4(m.preco_unitario) : fmtBrl(m.preco_unitario)) : "—"}</TableCell>
                             <TableCell>
-                              {isAuto ? <Badge variant="secondary">Auto</Badge> : "Manual"}
+                              {m.tipo_movimentacao === "Pagamento de Juros"
+                                ? <Badge variant="outline" className="text-green-600 border-green-600">Juros</Badge>
+                                : isAuto ? <Badge variant="secondary">Auto</Badge> : "Manual"}
                             </TableCell>
                             <TableCell className="text-right">
                               {!isAuto && (

@@ -74,9 +74,10 @@ let _cachedRows: PosicaoRow[] = [];
 let _cachedRentabilidade = 0;
 let _cachedCarteiraSummary: CarteiraSummaryRow[] = [];
 let _cachedPeriodoInicio: string | null = null;
+let _cachedPoupancaEngineRows = new Map<number, DailyRow[]>();
 
 import { registerCacheReset } from "@/lib/resetCaches";
-registerCacheReset(() => { _cachedVersion = null; _cachedRows = []; _cachedRentabilidade = 0; _cachedCarteiraSummary = []; _cachedPeriodoInicio = null; });
+registerCacheReset(() => { _cachedVersion = null; _cachedRows = []; _cachedRentabilidade = 0; _cachedCarteiraSummary = []; _cachedPeriodoInicio = null; _cachedPoupancaEngineRows = new Map(); });
 
 export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
@@ -325,6 +326,9 @@ export default function PosicaoConsolidadaPage() {
           poupancaRendimentoRecords,
           dataResgateTotal: product.resgate_total,
         });
+
+        // Cache engine rows for juros display in detail dialog
+        _cachedPoupancaEngineRows.set(product.codigo_custodia, engineRows);
 
         {
 
@@ -726,16 +730,31 @@ export default function PosicaoConsolidadaPage() {
       )}
 
       {/* Detalhe */}
-      {detalheRow && user && (
-        <PosicaoDetalheDialog
-          open={!!detalheRow}
-          onClose={() => setDetalheRow(null)}
-          data={getDetalheData(detalheRow)}
-          userId={user.id}
-          dataReferenciaISO={dataReferenciaISO}
-          onDataChanged={() => { calcVersionRef.current += 1; calculate(calcVersionRef.current); applyDataReferencia(); }}
-        />
-      )}
+      {detalheRow && user && (() => {
+        const isPoupanca = detalheRow.product.modalidade === "Poupança";
+        const jurosAniversario: { data: string; valor: number }[] = [];
+        if (isPoupanca) {
+          const engineRows = _cachedPoupancaEngineRows.get(detalheRow.product.codigo_custodia);
+          if (engineRows) {
+            for (const row of engineRows) {
+              if (row.ganhoDiario > 0.001) {
+                jurosAniversario.push({ data: row.data, valor: row.ganhoDiario });
+              }
+            }
+          }
+        }
+        return (
+          <PosicaoDetalheDialog
+            open={!!detalheRow}
+            onClose={() => setDetalheRow(null)}
+            data={getDetalheData(detalheRow)}
+            userId={user.id}
+            dataReferenciaISO={dataReferenciaISO}
+            onDataChanged={() => { calcVersionRef.current += 1; calculate(calcVersionRef.current); applyDataReferencia(); }}
+            jurosAniversario={jurosAniversario}
+          />
+        );
+      })()}
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteRow} onOpenChange={(o) => !o && setDeleteRow(null)}>
