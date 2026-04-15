@@ -74,6 +74,7 @@ let _cachedRows: PosicaoRow[] = [];
 let _cachedRentabilidade = 0;
 let _cachedCarteiraSummary: CarteiraSummaryRow[] = [];
 let _cachedPeriodoInicio: string | null = null;
+let _cachedPoupancaEngineRows = new Map<number, DailyRow[]>();
 
 import { registerCacheReset } from "@/lib/resetCaches";
 registerCacheReset(() => { _cachedVersion = null; _cachedRows = []; _cachedRentabilidade = 0; _cachedCarteiraSummary = []; _cachedPeriodoInicio = null; });
