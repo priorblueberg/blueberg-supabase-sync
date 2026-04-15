@@ -1,50 +1,75 @@
 
+## Diagnóstico
 
-## Diagnóstico: Absorção pós-resgate elimina lotes com aniversários diferentes
+A divergência atual não parece mais ser de “aniversário perdido”. O problema mais provável agora está no FIFO após o resgate de 22/01/2025:
 
-### Causa raiz
+- o engine já consegue deixar um lote ativo com:
+  - `valorPrincipal = 0`
+  - `valorAtual > 0`
+  - `rendimentoAcumulado > 0`
+- isso acontece quando o resgate consome todo o principal, mas sobra rendimento no lote
 
-Linhas 314-330 de `poupancaEngine.ts`: após um resgate parcial, o código **absorve** o próximo lote ativo no lote-fronteira. Isso:
-
-1. **Elimina o aniversário do lote absorvido.** No seu caso, o lote do dia 11 (aniversário 11, que cai no dia ~27 por causa do offset ou outro lote com dia 27) é absorvido pelo lote-fronteira do dia 23, perdendo o aniversário do dia 27 para sempre.
-
-2. **Infla o valor do lote-fronteira**, fazendo com que o rendimento do aniversário dia 23 seja calculado sobre uma base muito maior (soma dos dois lotes), gerando R$ 291,92 em vez dos R$ 164,45 que o Gorila calcula apenas sobre o valor do lote com aniversário dia 23.
-
-O Gorila **não absorve lotes**. Cada lote mantém seu próprio aniversário independentemente, mesmo após resgates parciais.
-
-### Alteração
-
-**Arquivo:** `src/lib/poupancaEngine.ts`, linhas 314-331
-
-**Remover inteiramente o bloco de absorção pós-resgate:**
+Hoje, no loop de resgate de `src/lib/poupancaEngine.ts`, o lote é ignorado se:
 
 ```ts
-// REMOVER este bloco (linhas 314-331):
-      // Absorção pós-resgate: quando há consumo parcial (lote-fronteira),
-      // o próximo lote ativo na ordem FIFO é absorvido pelo fronteira,
-      // mantendo o aniversário do fronteira e eliminando o absorvido.
-      if (frontierLote) {
-        const nextLote = sortedActive.find(
-          (l) => l.status === "ativo" && l.id !== frontierLote!.id && l.valorAtual > 0.01
-            && l.dataAplicacao > frontierLote!.dataAplicacao
-        );
-        if (nextLote) {
-          frontierLote.valorPrincipal += nextLote.valorPrincipal;
-          frontierLote.valorAtual += nextLote.valorAtual;
-          frontierLote.rendimentoAcumulado += nextLote.rendimentoAcumulado;
-          nextLote.valorAtual = 0;
-          nextLote.valorPrincipal = 0;
-          nextLote.rendimentoAcumulado = 0;
-          nextLote.status = "resgatado";
-        }
-      }
+if (lote.valorPrincipal <= 0.01) continue;
 ```
 
-Cada lote passa a manter seu próprio aniversário de forma independente após resgates, alinhando ao comportamento do Gorila.
+Ou seja: em resgates futuros, o engine não consome esses lotes “só com rendimento”, mesmo eles ainda tendo saldo econômico. O resultado é:
 
-### O que NÃO muda
-- Lógica de resgate FIFO (consumo total e parcial) permanece
-- Carteiras consolidadas intocadas
-- `carteiraRendaFixaEngine.ts` intocado
-- Nenhum outro engine ou página
+- lotes mais novos são consumidos antes da hora
+- a base remanescente do aniversário de 23/01 fica menor do que no Gorila
+- os pagamentos do dia 27 reaparecem, mas já sobre bases distorcidas
 
+Isso explica bem o sintoma atual:
+- nosso 23/01/2025 = 158,02
+- Gorila = 164,45
+
+## Plano de correção
+
+1. Ajustar o FIFO da Poupança em `src/lib/poupancaEngine.ts`
+   - trocar o critério de elegibilidade do lote no resgate:
+   ```ts
+   if (lote.valorAtual <= 0.01) continue;
+   ```
+   em vez de usar `valorPrincipal`
+   - manter a ordem FIFO por data de aplicação
+   - continuar consumindo pelo saldo econômico do lote (`valorAtual`)
+
+2. Revisar os três cenários do loop de resgate
+   - resgate cobre todo o lote: zera lote
+   - resgate cobre todo o principal mas não todo o saldo: lote continua só com saldo remanescente
+   - resgate parcial: reduz saldo corretamente sem mexer em aniversários
+
+3. Alinhar a função auxiliar exportada `resgatarPoupancaFIFO`
+   - ela ainda carrega lógica antiga e pode reintroduzir divergência no futuro
+   - se continuar exportada, deve refletir a mesma regra econômica do engine principal
+
+4. Validar os cenários já reportados
+   - saldo após inclusão da aplicação inicial anterior
+   - resgate de 02/01/2025
+   - pagamento de 23/01/2025
+   - pagamentos do dia 27
+   - confirmar que a Carteira Renda Fixa não é tocada
+
+## Detalhes técnicos
+
+**Arquivo principal:** `src/lib/poupancaEngine.ts`
+
+**Ponto crítico atual:**
+```ts
+if (lote.valorPrincipal <= 0.01) continue;
+```
+
+**Ajuste esperado:**
+```ts
+if (lote.valorAtual <= 0.01) continue;
+```
+
+## O que não será alterado
+
+- `carteiraRendaFixaEngine.ts`
+- páginas de carteira
+- página de Proventos
+- engine de Moedas
+- regra de aniversários já corrigida anteriormente
