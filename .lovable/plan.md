@@ -1,72 +1,50 @@
 
 
-## Diagnóstico: Saldo divergente na Poupança com lote anterior
+## Diagnóstico: Absorção pós-resgate elimina lotes com aniversários diferentes
 
 ### Causa raiz
 
-No resgate FIFO (linhas 288-303), quando um lote é **totalmente consumido**, o código subtrai apenas o `valorPrincipal` do `restante`:
+Linhas 314-330 de `poupancaEngine.ts`: após um resgate parcial, o código **absorve** o próximo lote ativo no lote-fronteira. Isso:
 
-```ts
-restante -= lote.valorPrincipal;  // linha 293
-```
+1. **Elimina o aniversário do lote absorvido.** No seu caso, o lote do dia 11 (aniversário 11, que cai no dia ~27 por causa do offset ou outro lote com dia 27) é absorvido pelo lote-fronteira do dia 23, perdendo o aniversário do dia 27 para sempre.
 
-Mas o lote já tem rendimento acumulado (aniversários creditados). O resgate deveria consumir o `valorAtual` (principal + rendimento), não apenas o principal.
+2. **Infla o valor do lote-fronteira**, fazendo com que o rendimento do aniversário dia 23 seja calculado sobre uma base muito maior (soma dos dois lotes), gerando R$ 291,92 em vez dos R$ 164,45 que o Gorila calcula apenas sobre o valor do lote com aniversário dia 23.
 
-**Exemplo com seus dados:**
-
-- Lote 0: 11/01/2024, principal 15.000, com ~150 de rendimento acumulado até 22/03 → valorAtual ≈ 15.150
-- Lote 1: 23/02/2024, principal 50.000
-- Resgate 22/03/2024: 40.000
-
-**Comportamento atual (errado):**
-- Lote 0: `restante -= 15.000` (ignora os ~150 de rendimento) → restante = 25.000
-- Lote 1: parcial, principal passa a 25.000
-- Os 150 de rendimento do Lote 0 são **perdidos** (zerados)
-
-**Comportamento Gorila (correto):**
-- Lote 0: `restante -= 15.150` (consome valor total) → restante = 24.850
-- Lote 1: parcial, principal passa a 25.150 (150 a mais)
-- Esse excedente de ~150 continua rendendo nos meses seguintes, acumulando a diferença de ~114 que você vê em 02/01/2025
+O Gorila **não absorve lotes**. Cada lote mantém seu próprio aniversário independentemente, mesmo após resgates parciais.
 
 ### Alteração
 
-**Arquivo:** `src/lib/poupancaEngine.ts`, linhas 292-297
+**Arquivo:** `src/lib/poupancaEngine.ts`, linhas 314-331
 
-**Antes:**
+**Remover inteiramente o bloco de absorção pós-resgate:**
+
 ```ts
-if (restante >= lote.valorPrincipal - 0.01) {
-  restante -= lote.valorPrincipal;
-  lote.valorAtual = 0;
-  lote.valorPrincipal = 0;
-  lote.rendimentoAcumulado = 0;
-  lote.status = "resgatado";
-}
+// REMOVER este bloco (linhas 314-331):
+      // Absorção pós-resgate: quando há consumo parcial (lote-fronteira),
+      // o próximo lote ativo na ordem FIFO é absorvido pelo fronteira,
+      // mantendo o aniversário do fronteira e eliminando o absorvido.
+      if (frontierLote) {
+        const nextLote = sortedActive.find(
+          (l) => l.status === "ativo" && l.id !== frontierLote!.id && l.valorAtual > 0.01
+            && l.dataAplicacao > frontierLote!.dataAplicacao
+        );
+        if (nextLote) {
+          frontierLote.valorPrincipal += nextLote.valorPrincipal;
+          frontierLote.valorAtual += nextLote.valorAtual;
+          frontierLote.rendimentoAcumulado += nextLote.rendimentoAcumulado;
+          nextLote.valorAtual = 0;
+          nextLote.valorPrincipal = 0;
+          nextLote.rendimentoAcumulado = 0;
+          nextLote.status = "resgatado";
+        }
+      }
 ```
 
-**Depois:**
-```ts
-if (restante >= lote.valorAtual - 0.01) {
-  restante -= lote.valorAtual;
-  lote.valorAtual = 0;
-  lote.valorPrincipal = 0;
-  lote.rendimentoAcumulado = 0;
-  lote.status = "resgatado";
-} else if (restante >= lote.valorPrincipal - 0.01) {
-  // Resgate consome todo o principal mas não todo o valorAtual
-  restante -= lote.valorPrincipal;
-  lote.valorPrincipal = 0;
-  lote.valorAtual = lote.rendimentoAcumulado;
-  // Lote continua ativo apenas com rendimento residual
-  restante = 0;
-  frontierLote = lote;
-}
-```
-
-A condição parcial existente (linhas 298-303) permanece inalterada para o caso `restante < valorPrincipal`.
+Cada lote passa a manter seu próprio aniversário de forma independente após resgates, alinhando ao comportamento do Gorila.
 
 ### O que NÃO muda
-- Carteiras consolidadas
-- `carteiraRendaFixaEngine.ts`
+- Lógica de resgate FIFO (consumo total e parcial) permanece
+- Carteiras consolidadas intocadas
+- `carteiraRendaFixaEngine.ts` intocado
 - Nenhum outro engine ou página
-- Resgate parcial (restante < valorPrincipal) — já corrigido anteriormente
 
