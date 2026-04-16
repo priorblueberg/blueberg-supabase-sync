@@ -122,7 +122,7 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
       rentAcumuladaPct,
     });
 
-    prevLiquido = liquido;
+    
   }
 
   return result;
