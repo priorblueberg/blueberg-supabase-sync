@@ -201,7 +201,7 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
     // Active lotes: those applied on or before this date and still active
     const activeLotes: LoteState[] = [];
     for (const l of sortedLoteStates) {
-      if (l.dataAplicacao > date) break;
+      if (l.dataAplicacao >= date) break;
       if (l.status === "ativo") activeLotes.push(l);
     }
 
