@@ -198,15 +198,21 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
 
     // Calculate rendimento for lotes that have their effective anniversary today
     let rendimentoDia = 0;
-    // Active lotes: those applied on or before this date and still active
+    // Active lotes: those applied on or before this date (for saldo/valor investido)
     const activeLotes: LoteState[] = [];
+    // Eligible for rendimento: only lotes applied strictly before this date
+    const eligibleLotesForRendimento: LoteState[] = [];
     for (const l of sortedLoteStates) {
-      if (l.dataAplicacao >= date) break;
-      if (l.status === "ativo") activeLotes.push(l);
+      if (l.dataAplicacao > date) break;
+      if (l.status === "ativo") {
+        activeLotes.push(l);
+        if (l.dataAplicacao < date) {
+          eligibleLotesForRendimento.push(l);
+        }
+      }
     }
 
-    for (const lote of activeLotes) {
-      if (date <= lote.dataAplicacao) continue;
+    for (const lote of eligibleLotesForRendimento) {
 
       const currentDate = new Date(date + "T00:00:00");
       const dataTeoricaAniversario = getDataTeóricaAniversario(
