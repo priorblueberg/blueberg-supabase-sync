@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
+import { registerCacheReset } from "@/lib/resetCaches";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -51,6 +52,7 @@ const COLUMNS: { key: SortField; label: string }[] = [
 // Module-level cache
 let _movCachedVersion: number | null = null;
 let _movCachedRows: Movimentacao[] = [];
+registerCacheReset(() => { _movCachedVersion = null; _movCachedRows = []; });
 
 export default function MovimentacoesPage() {
   const navigate = useNavigate();

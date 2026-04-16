@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
+import { registerCacheReset } from "@/lib/resetCaches";
 import BoletaCustodiaDialog, {
   type CustodiaRowForBoleta,
 } from "@/components/BoletaCustodiaDialog";
@@ -67,6 +68,7 @@ interface CarteiraInfo {
 let _custCachedVersion: number | null = null;
 let _custCachedRows: CustodiaRow[] = [];
 let _custCachedCarteira: CarteiraInfo | null = null;
+registerCacheReset(() => { _custCachedVersion = null; _custCachedRows = []; _custCachedCarteira = null; });
 
 export default function CustodiaPage() {
   const [rows, setRows] = useState<CustodiaRow[]>(_custCachedRows);
