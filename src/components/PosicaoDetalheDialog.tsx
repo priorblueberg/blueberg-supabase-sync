@@ -41,6 +41,8 @@ export interface PosicaoDetalheData {
   pagamento: string | null;
   emissor: string | null;
   vencimento: string | null;
+  ganhoFinanceiro?: number;
+  rentabilidade?: number;
 }
 
 interface Props {
