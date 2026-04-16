@@ -326,9 +326,8 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
     totalAplicacoes += mov.aplicacoes;
     totalResgates += mov.resgates;
 
-    // Rentabilidade acumulada % — composição diária patrimonial
-    const prevLiquido = idx > 0 ? rows[idx - 1].liquido : 0;
-    const baseRentabilidade = prevLiquido + mov.aplicacoes;
+    // Rentabilidade acumulada % — base = valor investido (compatível Gorila para poupança)
+    const baseRentabilidade = valorInvestido;
     const rentDiariaPct = baseRentabilidade > 0.01 ? ganhoDiario / baseRentabilidade : 0;
     rentAcum2 = (1 + rentAcum2) * (1 + rentDiariaPct) - 1;
 
