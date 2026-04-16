@@ -201,10 +201,11 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                         <TableHead className="w-[100px]">Data</TableHead>
                         <TableHead className="w-[140px]">Tipo</TableHead>
                         <TableHead className="w-[130px]">Valor</TableHead>
-                        <TableHead className="w-[100px]">Quantidade</TableHead>
-                        <TableHead className="w-[120px]">Preço Unit.</TableHead>
+                        {!isPoupanca && <TableHead className="w-[100px]">Quantidade</TableHead>}
+                        {!isPoupanca && <TableHead className="w-[120px]">Preço Unit.</TableHead>}
                         <TableHead className="w-[80px]">Origem</TableHead>
-                        <TableHead className="w-[80px] text-right">Ações</TableHead>
+                        {!isPoupanca && <TableHead className="w-[80px] text-right">Ações</TableHead>}
+                        {isPoupanca && <TableHead className="w-[130px] text-right">Saldo</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -215,29 +216,36 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                             <TableCell className="whitespace-nowrap">{fmtDate(m.data)}</TableCell>
                             <TableCell className="whitespace-nowrap">{m.tipo_movimentacao}</TableCell>
                             <TableCell className="whitespace-nowrap">{fmtBrl(m.valor)}</TableCell>
-                            <TableCell className="whitespace-nowrap">{fmtQty(m.quantidade)}</TableCell>
-                            <TableCell className="whitespace-nowrap">{m.preco_unitario != null ? (isMoedasCategoria(data.nome) ? fmtBrl4(m.preco_unitario) : fmtBrl(m.preco_unitario)) : "—"}</TableCell>
+                            {!isPoupanca && <TableCell className="whitespace-nowrap">{fmtQty(m.quantidade)}</TableCell>}
+                            {!isPoupanca && <TableCell className="whitespace-nowrap">{m.preco_unitario != null ? (isMoedasCategoria(data.nome) ? fmtBrl4(m.preco_unitario) : fmtBrl(m.preco_unitario)) : "—"}</TableCell>}
                             <TableCell>
                               {isAuto ? "Auto" : "Manual"}
                             </TableCell>
-                            <TableCell className="text-right">
-                              {!isAuto && (
-                                <div className="flex justify-end gap-1">
-                                  <Button
-                                    variant="ghost" size="icon" className="h-7 w-7"
-                                    onClick={() => { onClose(); navigate(`/cadastrar-transacao?edit=${m.id}`); }}
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost" size="icon" className="h-7 w-7 text-destructive"
-                                    onClick={() => setDeleteId(m)}
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </div>
-                              )}
-                            </TableCell>
+                            {!isPoupanca && (
+                              <TableCell className="text-right">
+                                {!isAuto && (
+                                  <div className="flex justify-end gap-1">
+                                    <Button
+                                      variant="ghost" size="icon" className="h-7 w-7"
+                                      onClick={() => { onClose(); navigate(`/cadastrar-transacao?edit=${m.id}`); }}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                                      onClick={() => setDeleteId(m)}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </TableCell>
+                            )}
+                            {isPoupanca && (
+                              <TableCell className="whitespace-nowrap text-right font-medium">
+                                {fmtBrl((m as any)._saldo ?? 0)}
+                              </TableCell>
+                            )}
                           </TableRow>
                         );
                       })}
