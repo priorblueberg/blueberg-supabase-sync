@@ -256,16 +256,25 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
             </TabsContent>
 
             <TabsContent value="dados">
-              <div className="grid grid-cols-2 gap-x-8 gap-y-3 py-2 text-sm">
-                <DataField label="Nome do Ativo" value={data.nome} />
-                <DataField label="Indexador" value={data.indexador ?? "—"} />
-                <DataField label="Taxa" value={data.taxa != null ? `${data.taxa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}%` : "—"} />
-                <DataField label="Modalidade" value={data.modalidade ?? "—"} />
-                <DataField label="Tipo de Pagamento" value={data.pagamento ?? "—"} />
-                <DataField label="Emissor" value={data.emissor ?? "—"} />
-                <DataField label="Custodiante" value={data.custodiante} />
-                <DataField label="Vencimento" value={fmtDate(data.vencimento ?? null)} />
-              </div>
+              {isPoupanca ? (
+                <div className="grid grid-cols-2 gap-x-8 gap-y-3 py-2 text-sm">
+                  <DataField label="Nome do Ativo" value={data.nome} />
+                  <DataField label="Instituição" value={data.custodiante} />
+                  <DataField label="Ganho Financeiro" value={data.ganhoFinanceiro != null ? fmtBrl(data.ganhoFinanceiro) : "—"} />
+                  <DataField label="Rentabilidade" value={data.rentabilidade != null ? `${data.rentabilidade.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}%` : "—"} />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-x-8 gap-y-3 py-2 text-sm">
+                  <DataField label="Nome do Ativo" value={data.nome} />
+                  <DataField label="Indexador" value={data.indexador ?? "—"} />
+                  <DataField label="Taxa" value={data.taxa != null ? `${data.taxa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}%` : "—"} />
+                  <DataField label="Modalidade" value={data.modalidade ?? "—"} />
+                  <DataField label="Tipo de Pagamento" value={data.pagamento ?? "—"} />
+                  <DataField label="Emissor" value={data.emissor ?? "—"} />
+                  <DataField label="Custodiante" value={data.custodiante} />
+                  <DataField label="Vencimento" value={fmtDate(data.vencimento ?? null)} />
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </DialogContent>
