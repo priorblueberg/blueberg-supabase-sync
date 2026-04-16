@@ -41,6 +41,8 @@ export interface PosicaoDetalheData {
   pagamento: string | null;
   emissor: string | null;
   vencimento: string | null;
+  ganhoFinanceiro?: number;
+  rentabilidade?: number;
 }
 
 interface Props {
@@ -70,6 +72,7 @@ function isMoedasCategoria(nome: string): boolean {
 }
 
 export default function PosicaoDetalheDialog({ open, onClose, data, userId, dataReferenciaISO, onDataChanged, jurosAniversario = [] }: Props) {
+  const isPoupanca = data.modalidade === "Poupança";
   const navigate = useNavigate();
   const [movs, setMovs] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(false);
@@ -112,7 +115,23 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
       origem: "automatico",
     }));
 
-    const combined = [...deduped, ...jurosRows].sort((a, b) => b.data.localeCompare(a.data));
+    // For Poupança, compute running balance (ascending order, then reverse for display)
+    const sortedAsc = [...deduped, ...jurosRows].sort((a, b) => a.data.localeCompare(b.data));
+    if (isPoupanca) {
+      let saldo = 0;
+      for (const m of sortedAsc) {
+        if (m.tipo_movimentacao === "Aplicação Inicial" || m.tipo_movimentacao === "Aplicação" || m.tipo_movimentacao === "Aporte") {
+          saldo += m.valor;
+        } else if (m.tipo_movimentacao === "Resgate" || m.tipo_movimentacao === "Resgate Total" || m.tipo_movimentacao === "Resgate Parcial") {
+          saldo -= m.valor;
+        } else {
+          // Rendimentos / juros
+          saldo += m.valor;
+        }
+        (m as any)._saldo = saldo;
+      }
+    }
+    const combined = sortedAsc.reverse();
     setMovs(combined);
     setLoading(false);
   }
@@ -182,10 +201,11 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                         <TableHead className="w-[100px]">Data</TableHead>
                         <TableHead className="w-[140px]">Tipo</TableHead>
                         <TableHead className="w-[130px]">Valor</TableHead>
-                        <TableHead className="w-[100px]">Quantidade</TableHead>
-                        <TableHead className="w-[120px]">Preço Unit.</TableHead>
+                        {!isPoupanca && <TableHead className="w-[100px]">Quantidade</TableHead>}
+                        {!isPoupanca && <TableHead className="w-[120px]">Preço Unit.</TableHead>}
                         <TableHead className="w-[80px]">Origem</TableHead>
-                        <TableHead className="w-[80px] text-right">Ações</TableHead>
+                        {!isPoupanca && <TableHead className="w-[80px] text-right">Ações</TableHead>}
+                        {isPoupanca && <TableHead className="w-[130px] text-right">Saldo</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -196,29 +216,36 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                             <TableCell className="whitespace-nowrap">{fmtDate(m.data)}</TableCell>
                             <TableCell className="whitespace-nowrap">{m.tipo_movimentacao}</TableCell>
                             <TableCell className="whitespace-nowrap">{fmtBrl(m.valor)}</TableCell>
-                            <TableCell className="whitespace-nowrap">{fmtQty(m.quantidade)}</TableCell>
-                            <TableCell className="whitespace-nowrap">{m.preco_unitario != null ? (isMoedasCategoria(data.nome) ? fmtBrl4(m.preco_unitario) : fmtBrl(m.preco_unitario)) : "—"}</TableCell>
+                            {!isPoupanca && <TableCell className="whitespace-nowrap">{fmtQty(m.quantidade)}</TableCell>}
+                            {!isPoupanca && <TableCell className="whitespace-nowrap">{m.preco_unitario != null ? (isMoedasCategoria(data.nome) ? fmtBrl4(m.preco_unitario) : fmtBrl(m.preco_unitario)) : "—"}</TableCell>}
                             <TableCell>
                               {isAuto ? "Auto" : "Manual"}
                             </TableCell>
-                            <TableCell className="text-right">
-                              {!isAuto && (
-                                <div className="flex justify-end gap-1">
-                                  <Button
-                                    variant="ghost" size="icon" className="h-7 w-7"
-                                    onClick={() => { onClose(); navigate(`/cadastrar-transacao?edit=${m.id}`); }}
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost" size="icon" className="h-7 w-7 text-destructive"
-                                    onClick={() => setDeleteId(m)}
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </div>
-                              )}
-                            </TableCell>
+                            {!isPoupanca && (
+                              <TableCell className="text-right">
+                                {!isAuto && (
+                                  <div className="flex justify-end gap-1">
+                                    <Button
+                                      variant="ghost" size="icon" className="h-7 w-7"
+                                      onClick={() => { onClose(); navigate(`/cadastrar-transacao?edit=${m.id}`); }}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost" size="icon" className="h-7 w-7 text-destructive"
+                                      onClick={() => setDeleteId(m)}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </TableCell>
+                            )}
+                            {isPoupanca && (
+                              <TableCell className="whitespace-nowrap text-right font-medium">
+                                {fmtBrl((m as any)._saldo ?? 0)}
+                              </TableCell>
+                            )}
                           </TableRow>
                         );
                       })}
@@ -229,16 +256,25 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
             </TabsContent>
 
             <TabsContent value="dados">
-              <div className="grid grid-cols-2 gap-x-8 gap-y-3 py-2 text-sm">
-                <DataField label="Nome do Ativo" value={data.nome} />
-                <DataField label="Indexador" value={data.indexador ?? "—"} />
-                <DataField label="Taxa" value={data.taxa != null ? `${data.taxa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}%` : "—"} />
-                <DataField label="Modalidade" value={data.modalidade ?? "—"} />
-                <DataField label="Tipo de Pagamento" value={data.pagamento ?? "—"} />
-                <DataField label="Emissor" value={data.emissor ?? "—"} />
-                <DataField label="Custodiante" value={data.custodiante} />
-                <DataField label="Vencimento" value={fmtDate(data.vencimento ?? null)} />
-              </div>
+              {isPoupanca ? (
+                <div className="grid grid-cols-2 gap-x-8 gap-y-3 py-2 text-sm">
+                  <DataField label="Nome do Ativo" value={data.nome} />
+                  <DataField label="Instituição" value={data.custodiante} />
+                  <DataField label="Ganho Financeiro" value={data.ganhoFinanceiro != null ? fmtBrl(data.ganhoFinanceiro) : "—"} />
+                  <DataField label="Rentabilidade" value={data.rentabilidade != null ? `${data.rentabilidade.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}%` : "—"} />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-x-8 gap-y-3 py-2 text-sm">
+                  <DataField label="Nome do Ativo" value={data.nome} />
+                  <DataField label="Indexador" value={data.indexador ?? "—"} />
+                  <DataField label="Taxa" value={data.taxa != null ? `${data.taxa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}%` : "—"} />
+                  <DataField label="Modalidade" value={data.modalidade ?? "—"} />
+                  <DataField label="Tipo de Pagamento" value={data.pagamento ?? "—"} />
+                  <DataField label="Emissor" value={data.emissor ?? "—"} />
+                  <DataField label="Custodiante" value={data.custodiante} />
+                  <DataField label="Vencimento" value={fmtDate(data.vencimento ?? null)} />
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </DialogContent>

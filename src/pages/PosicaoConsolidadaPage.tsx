@@ -590,6 +590,8 @@ export default function PosicaoConsolidadaPage() {
       pagamento: p.pagamento,
       emissor: p.emissor_nome,
       vencimento: p.vencimento,
+      ganhoFinanceiro: row.ganhoFinanceiro,
+      rentabilidade: row.rentabilidade,
     };
   }
 
