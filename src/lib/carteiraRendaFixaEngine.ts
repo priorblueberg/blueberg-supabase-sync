@@ -40,16 +40,18 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
     liquido2: number;
     aplicacoes: number;
     rentDiariaRS: number;
+    valorInvestido: number;
   }>();
 
   for (const rows of productRows) {
     for (const row of rows) {
       if (row.data < dataInicio || row.data > dataCalculo) continue;
-      const existing = dateAgg.get(row.data) || { liquido: 0, liquido2: 0, aplicacoes: 0, rentDiariaRS: 0 };
+      const existing = dateAgg.get(row.data) || { liquido: 0, liquido2: 0, aplicacoes: 0, rentDiariaRS: 0, valorInvestido: 0 };
       existing.liquido += row.liquido;
       existing.liquido2 += row.liquido2;
       existing.aplicacoes += row.aplicacoes;
       existing.rentDiariaRS += row.ganhoDiario;
+      existing.valorInvestido += row.valorInvestido;
       dateAgg.set(row.data, existing);
     }
   }
@@ -81,10 +83,11 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
       continue;
     }
 
-    const { liquido, liquido2, aplicacoes, rentDiariaRS } = agg;
+    const { liquido, liquido2, aplicacoes, rentDiariaRS, valorInvestido } = agg;
 
-    // Segue a mesma base usada na composição diária consolidada da tabela de detalhe
-    const baseRentabilidade = prevLiquido + aplicacoes;
+    // Para poupança (valorInvestido > 0), usa valorInvestido como base (compatível Gorila).
+    // Para demais produtos, usa prevLiquido + aplicacoes.
+    const baseRentabilidade = valorInvestido > 0.01 ? valorInvestido : (prevLiquido + aplicacoes);
     const rentDiariaPct = baseRentabilidade > 0.01 ? rentDiariaRS / baseRentabilidade : 0;
 
     rentAcumuladaRS += rentDiariaRS;
