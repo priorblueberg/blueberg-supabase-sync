@@ -1,29 +1,27 @@
 
 
-## Fix: Clear all caches on logout
-
-### Problem
-When switching users, pages retain cached data from the previous user (dataCache, engineCache, page-level caches, and React Query cache), showing stale/incorrect information.
+## Fix: Stale cache on user switch for MovimentacoesPage and CustodiaPage
 
 ### Root cause
-The `signOut` function in `useAuth.tsx` only calls `supabase.auth.signOut()` without clearing any application caches. The `resetAllAppCaches()` function exists but is only used in the settings page reset flow.
 
-### Changes
+`MovimentacoesPage` and `CustodiaPage` have module-level caches (`_movCachedVersion`/`_movCachedRows` and `_custCachedVersion`/`_custCachedRows`) but **never register** with `registerCacheReset()`. When a user logs out and another logs in, `resetAllAppCaches()` runs but these two caches are untouched — the old data is shown until `appliedVersion` changes.
 
-**1. `src/hooks/useAuth.tsx`** — Clear all caches on sign out
+### Fix
 
-Import `resetAllAppCaches` and call it inside `signOut`. Also clear React Query cache by accepting a `queryClient` reference or by importing it.
+Add `registerCacheReset` calls in both files, matching the pattern used by the other pages (PosicaoConsolidada, CarteiraRendaFixa, CarteiraInvestimentos, CarteiraCambio).
 
-Since `queryClient` is created in `App.tsx` and not easily accessible from the hook, the cleanest approach is to:
-- Export `queryClient` from `App.tsx`
-- In `signOut`, call `resetAllAppCaches()` and `queryClient.clear()` before `supabase.auth.signOut()`
+**`src/pages/MovimentacoesPage.tsx`** — after line 53:
+```ts
+import { registerCacheReset } from "@/lib/resetCaches";
+registerCacheReset(() => { _movCachedVersion = null; _movCachedRows = []; });
+```
 
-**2. `src/App.tsx`** — Export `queryClient`
-
-Add `export` to `const queryClient = new QueryClient()`.
+**`src/pages/CustodiaPage.tsx`** — after line 69:
+```ts
+import { registerCacheReset } from "@/lib/resetCaches";
+registerCacheReset(() => { _custCachedVersion = null; _custCachedRows = []; _custCachedCarteira = null; });
+```
 
 ### What stays the same
-- All engine logic, page components, and cache structure unchanged
-- `resetAllAppCaches` function unchanged
-- Auth state clearing (already handled by `clearAuthState` on auth change event)
+- Cache structure, engine logic, auth flow, all other pages unchanged.
 
