@@ -276,13 +276,12 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
     // Process movimentações
     const mov = movMap.get(date) || { aplicacoes: 0, resgates: 0 };
 
-    // Process resgates: LIFO baseado em valor_principal (regra Gorila).
-    // O resgate consome o principal dos lotes mais novos primeiro.
+    // Process resgates: FIFO — consome lotes mais antigos primeiro.
     // Quando o principal de um lote é totalmente consumido, o lote inteiro
-    // (incluindo rendimentos) é eliminado — rendimentos proporcionais são perdidos.
+    // (incluindo rendimentos) é eliminado.
     if (mov.resgates > 0) {
       let restante = mov.resgates;
-      const sortedActive = [...activeLotes].sort((a, b) => b.dataAplicacao.localeCompare(a.dataAplicacao));
+      const sortedActive = [...activeLotes].sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao));
       let frontierLote: LoteState | null = null;
 
       for (const lote of sortedActive) {
@@ -398,18 +397,18 @@ export function buildPoupancaLotesFromMovs(
 }
 
 /**
- * Algoritmo LIFO para resgate de poupança.
- * Consome lotes do mais novo para o mais antigo.
+ * Algoritmo FIFO para resgate de poupança.
+ * Consome lotes do mais antigo para o mais novo.
  * Retorna os lotes atualizados e o valor efetivamente resgatado.
  */
-export function resgatarPoupancaLIFO(
+export function resgatarPoupancaFIFO(
   lotes: LoteState[],
   valorResgate: number,
   dataResgate: string
 ): { lotesAtualizados: LoteState[]; valorResgatado: number } {
   const sorted = [...lotes]
     .filter(l => l.status === "ativo")
-    .sort((a, b) => b.dataAplicacao.localeCompare(a.dataAplicacao));
+    .sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao));
 
   let restante = valorResgate;
   let valorResgatado = 0;
