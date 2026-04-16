@@ -1,34 +1,29 @@
 
 
-## Fix: Change poupança resgate order from FIFO to LIFO
+## Fix: Clear all caches on logout
+
+### Problem
+When switching users, pages retain cached data from the previous user (dataCache, engineCache, page-level caches, and React Query cache), showing stale/incorrect information.
 
 ### Root cause
+The `signOut` function in `useAuth.tsx` only calls `supabase.auth.signOut()` without clearing any application caches. The `resetAllAppCaches()` function exists but is only used in the settings page reset flow.
 
-The R$ 1,000 resgate on 02/01/2025 is being consumed from the **oldest** lot (dia 23, FIFO) but Gorila consumes from the **newest** lot (dia 27, LIFO). This shifts the balance between lots, causing all subsequent rendimentos to diverge:
-- Dia 23: Blueberg lower (158.02 vs 164.45) because its base was reduced
-- Dia 27: Blueberg higher (128.59 vs 122.42) because its base was untouched
+### Changes
 
-### Change
+**1. `src/hooks/useAuth.tsx`** — Clear all caches on sign out
 
-**File:** `src/lib/poupancaEngine.ts`, line 285
+Import `resetAllAppCaches` and call it inside `signOut`. Also clear React Query cache by accepting a `queryClient` reference or by importing it.
 
-Change the sort order of active lots for resgate processing from ascending (FIFO) to **descending** (LIFO):
+Since `queryClient` is created in `App.tsx` and not easily accessible from the hook, the cleanest approach is to:
+- Export `queryClient` from `App.tsx`
+- In `signOut`, call `resetAllAppCaches()` and `queryClient.clear()` before `supabase.auth.signOut()`
 
-```ts
-// Before:
-const sortedActive = [...activeLotes].sort((a, b) => a.dataAplicacao.localeCompare(b.dataAplicacao));
+**2. `src/App.tsx`** — Export `queryClient`
 
-// After:
-const sortedActive = [...activeLotes].sort((a, b) => b.dataAplicacao.localeCompare(a.dataAplicacao));
-```
-
-Also update the comments on lines 279-282 to reflect LIFO instead of FIFO.
-
-The `resgatarPoupancaFIFO` export function (lines 390+) should also be updated to LIFO for consistency, along with its name.
+Add `export` to `const queryClient = new QueryClient()`.
 
 ### What stays the same
-- Rendimento calculation logic
-- Anniversary date logic
-- All other engines and pages
-- Proventos page (not touched)
+- All engine logic, page components, and cache structure unchanged
+- `resetAllAppCaches` function unchanged
+- Auth state clearing (already handled by `clearAuthState` on auth change event)
 
