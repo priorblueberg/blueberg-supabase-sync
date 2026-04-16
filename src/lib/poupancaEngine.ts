@@ -322,7 +322,7 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
 
     // Rentabilidade acumulada % — composição diária patrimonial
     const prevLiquido = idx > 0 ? rows[idx - 1].liquido : 0;
-    const baseRentabilidade = prevLiquido;
+    const baseRentabilidade = prevLiquido + mov.aplicacoes;
     const rentDiariaPct = baseRentabilidade > 0.01 ? ganhoDiario / baseRentabilidade : 0;
     rentAcum2 = (1 + rentAcum2) * (1 + rentDiariaPct) - 1;
 
