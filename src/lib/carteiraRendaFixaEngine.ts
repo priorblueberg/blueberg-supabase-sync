@@ -40,40 +40,25 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
     liquido2: number;
     aplicacoes: number;
     rentDiariaRS: number;
-    // Weighted daily return: sum of (base_i * rentDiariaPct_i), and total base
-    weightedReturn: number;
-    totalBase: number;
+    baseEconomica: number;
   }>();
 
-  // We need previous-day liquido per product for non-poupança base calculation.
-  // Track per-product prev liquido.
-  const prevLiquidoByProduct = new Map<number, number>(); // productIndex -> prevLiquido
-
   for (let pIdx = 0; pIdx < productRows.length; pIdx++) {
-    let prevProdLiquido = 0;
     for (const row of productRows[pIdx]) {
       if (row.data < dataInicio || row.data > dataCalculo) {
-        prevProdLiquido = row.liquido;
         continue;
       }
       const existing = dateAgg.get(row.data) || {
         liquido: 0, liquido2: 0, aplicacoes: 0, rentDiariaRS: 0,
-        weightedReturn: 0, totalBase: 0,
+        baseEconomica: 0,
       };
       existing.liquido += row.liquido;
       existing.liquido2 += row.liquido2;
       existing.aplicacoes += row.aplicacoes;
       existing.rentDiariaRS += row.ganhoDiario;
-
-      // Use product's own rentDiariaPct with its own base for weighted composition
-      const prodBase = row.valorInvestido > 0.01
-        ? row.valorInvestido
-        : (prevProdLiquido + row.aplicacoes);
-      existing.weightedReturn += prodBase * (row.rentDiariaPct ?? 0);
-      existing.totalBase += prodBase;
+      existing.baseEconomica += row.baseEconomica ?? row.valorInvestido ?? 0;
 
       dateAgg.set(row.data, existing);
-      prevProdLiquido = row.liquido;
     }
   }
 
@@ -103,10 +88,9 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
       continue;
     }
 
-    const { liquido, liquido2, rentDiariaRS, weightedReturn, totalBase } = agg;
-
-    // Weighted average of each product's own rentDiariaPct (preserves per-engine precision)
-    const rentDiariaPct = totalBase > 0.01 ? weightedReturn / totalBase : 0;
+    const { liquido, liquido2, rentDiariaRS, baseEconomica } = agg;
+    const baseRentabilidade = baseEconomica;
+    const rentDiariaPct = baseRentabilidade > 0.01 ? rentDiariaRS / baseRentabilidade : 0;
 
     rentAcumuladaRS += rentDiariaRS;
     rentAcumuladaPct = (1 + rentAcumuladaPct) * (1 + rentDiariaPct) - 1;
