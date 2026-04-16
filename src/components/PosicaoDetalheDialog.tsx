@@ -72,6 +72,7 @@ function isMoedasCategoria(nome: string): boolean {
 }
 
 export default function PosicaoDetalheDialog({ open, onClose, data, userId, dataReferenciaISO, onDataChanged, jurosAniversario = [] }: Props) {
+  const isPoupanca = data.modalidade === "Poupança";
   const navigate = useNavigate();
   const [movs, setMovs] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(false);
@@ -114,7 +115,23 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
       origem: "automatico",
     }));
 
-    const combined = [...deduped, ...jurosRows].sort((a, b) => b.data.localeCompare(a.data));
+    // For Poupança, compute running balance (ascending order, then reverse for display)
+    const sortedAsc = [...deduped, ...jurosRows].sort((a, b) => a.data.localeCompare(b.data));
+    if (isPoupanca) {
+      let saldo = 0;
+      for (const m of sortedAsc) {
+        if (m.tipo_movimentacao === "Aplicação Inicial" || m.tipo_movimentacao === "Aplicação" || m.tipo_movimentacao === "Aporte") {
+          saldo += m.valor;
+        } else if (m.tipo_movimentacao === "Resgate" || m.tipo_movimentacao === "Resgate Total" || m.tipo_movimentacao === "Resgate Parcial") {
+          saldo -= m.valor;
+        } else {
+          // Rendimentos / juros
+          saldo += m.valor;
+        }
+        (m as any)._saldo = saldo;
+      }
+    }
+    const combined = sortedAsc.reverse();
     setMovs(combined);
     setLoading(false);
   }
