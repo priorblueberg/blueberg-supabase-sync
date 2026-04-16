@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { registerCacheReset } from "@/lib/resetCaches";
+import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -51,11 +52,13 @@ const COLUMNS: { key: SortField; label: string }[] = [
 
 // Module-level cache
 let _movCachedVersion: number | null = null;
+let _movCachedUserId: string | null = null;
 let _movCachedRows: Movimentacao[] = [];
-registerCacheReset(() => { _movCachedVersion = null; _movCachedRows = []; });
+registerCacheReset(() => { _movCachedVersion = null; _movCachedUserId = null; _movCachedRows = []; });
 
 export default function MovimentacoesPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { dataReferenciaISO, applyDataReferencia, appliedVersion } = useDataReferencia();
   const [rows, setRows] = useState<Movimentacao[]>(_movCachedRows);
   const [loading, setLoading] = useState(_movCachedVersion === null);
@@ -66,6 +69,17 @@ export default function MovimentacoesPage() {
   const [filterTipo, setFilterTipo] = useState("");
 
   const fetchData = async () => {
+    if (!user) {
+      setRows([]);
+      _movCachedRows = [];
+      _movCachedVersion = null;
+      _movCachedUserId = null;
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
     const { data, error } = await supabase
       .from("movimentacoes")
       .select(`
@@ -74,6 +88,7 @@ export default function MovimentacoesPage() {
         valor, origem, codigo_custodia, modalidade,
         instituicoes(nome)
       `)
+      .eq("user_id", user.id)
       .order("data", { ascending: false });
 
     if (!error && data) {
@@ -94,15 +109,22 @@ export default function MovimentacoesPage() {
         }));
       setRows(mapped);
       _movCachedRows = mapped;
+      _movCachedUserId = user.id;
     }
     _movCachedVersion = appliedVersion;
     setLoading(false);
   };
 
   useEffect(() => {
-    if (_movCachedVersion === appliedVersion) return;
+    if (!user) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
+    if (_movCachedVersion === appliedVersion && _movCachedUserId === user.id) return;
     fetchData();
-  }, [appliedVersion]);
+  }, [appliedVersion, user?.id]);
 
   // Unique values for filters
   const uniqueNomes = useMemo(() => {

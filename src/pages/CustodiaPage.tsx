@@ -66,9 +66,10 @@ interface CarteiraInfo {
 
 // Module-level cache
 let _custCachedVersion: number | null = null;
+let _custCachedUserId: string | null = null;
 let _custCachedRows: CustodiaRow[] = [];
 let _custCachedCarteira: CarteiraInfo | null = null;
-registerCacheReset(() => { _custCachedVersion = null; _custCachedRows = []; _custCachedCarteira = null; });
+registerCacheReset(() => { _custCachedVersion = null; _custCachedUserId = null; _custCachedRows = []; _custCachedCarteira = null; });
 
 export default function CustodiaPage() {
   const [rows, setRows] = useState<CustodiaRow[]>(_custCachedRows);
@@ -84,10 +85,24 @@ export default function CustodiaPage() {
   const [deleteRow, setDeleteRow] = useState<CustodiaRow | null>(null);
 
   const fetchData = async () => {
+    if (!user) {
+      setRows([]);
+      setCarteiraInfo(null);
+      _custCachedRows = [];
+      _custCachedCarteira = null;
+      _custCachedVersion = null;
+      _custCachedUserId = null;
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
     const { data: carteiraData } = await supabase
       .from("controle_de_carteiras")
       .select("nome_carteira, status, data_inicio, data_calculo")
       .eq("nome_carteira", "Renda Fixa")
+      .eq("user_id", user.id)
       .maybeSingle();
 
     if (carteiraData) {
@@ -113,6 +128,7 @@ export default function CustodiaPage() {
         categoria_id, produto_id, instituicao_id, emissor_id,
         produtos(nome), instituicoes(nome), emissores(nome), categorias(nome)
       `)
+      .eq("user_id", user.id)
       .order("codigo_custodia", { ascending: true });
 
     if (!error && data) {
@@ -153,15 +169,23 @@ export default function CustodiaPage() {
         }));
       setRows(mapped);
       _custCachedRows = mapped;
+      _custCachedUserId = user.id;
     }
     _custCachedVersion = appliedVersion;
     setLoading(false);
   };
 
   useEffect(() => {
-    if (_custCachedVersion === appliedVersion) return;
+    if (!user) {
+      setRows([]);
+      setCarteiraInfo(null);
+      setLoading(false);
+      return;
+    }
+
+    if (_custCachedVersion === appliedVersion && _custCachedUserId === user.id) return;
     fetchData();
-  }, [appliedVersion]);
+  }, [appliedVersion, user?.id]);
 
   const openBoleta = (row: CustodiaRow, tipo: "Aplicação" | "Resgate") => {
     setDialogRow({
