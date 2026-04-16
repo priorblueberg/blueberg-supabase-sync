@@ -297,11 +297,13 @@ export function calcularPoupancaDiario(input: PoupancaEngineInput): DailyRow[] {
           lote.rendimentoAcumulado = 0;
           lote.status = "resgatado";
         } else {
-          // Resgate parcial: consome do saldo econômico (valorAtual)
+          // Resgate parcial: proporção econômica preserva relação principal/rendimento
           const proporcao = restante / lote.valorAtual;
-          lote.valorAtual -= restante;
-          lote.valorPrincipal = Math.max(0, lote.valorPrincipal - restante);
-          lote.rendimentoAcumulado = Math.max(0, lote.valorAtual - lote.valorPrincipal);
+          const principalResgatado = lote.valorPrincipal * proporcao;
+          const rendimentoResgatado = lote.rendimentoAcumulado * proporcao;
+          lote.valorPrincipal -= principalResgatado;
+          lote.rendimentoAcumulado -= rendimentoResgatado;
+          lote.valorAtual = lote.valorPrincipal + lote.rendimentoAcumulado;
           restante = 0;
           frontierLote = lote;
         }
@@ -424,9 +426,12 @@ export function resgatarPoupancaLIFO(
       lote.valorPrincipal = 0;
       lote.rendimentoAcumulado = 0;
     } else {
-      lote.valorAtual -= restante;
-      lote.valorPrincipal = Math.max(0, lote.valorPrincipal - restante);
-      lote.rendimentoAcumulado = Math.max(0, lote.valorAtual - lote.valorPrincipal);
+      const proporcao = restante / lote.valorAtual;
+      const principalResgatado = lote.valorPrincipal * proporcao;
+      const rendimentoResgatado = lote.rendimentoAcumulado * proporcao;
+      lote.valorPrincipal -= principalResgatado;
+      lote.rendimentoAcumulado -= rendimentoResgatado;
+      lote.valorAtual = lote.valorPrincipal + lote.rendimentoAcumulado;
       valorResgatado += restante;
       restante = 0;
     }
