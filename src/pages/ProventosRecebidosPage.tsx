@@ -48,6 +48,11 @@ const fmtDate = (d: string) =>
 const fmtBrl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+function getProdutoCalcEnd(prod: any, dataRef: string): string {
+  const finalDate = prod.resgate_total || prod.vencimento || prod.data_calculo || dataRef;
+  return finalDate > dataRef ? dataRef : finalDate;
+}
+
 // Fixed D-1 date (independent of global selector)
 const DATA_REF = format(subDays(new Date(), 1), "yyyy-MM-dd");
 
@@ -105,7 +110,7 @@ export default function ProventosRecebidosPage() {
       const allProducts = [...rfProducts, ...poupancaProducts];
       const minDate = allProducts.reduce((m: string, p: any) => p.data_inicio < m ? p.data_inicio : m, allProducts[0].data_inicio);
       const maxDate = allProducts.reduce((m: string, p: any) => {
-        const end = p.data_calculo || dataRef;
+        const end = getProdutoCalcEnd(p, dataRef);
         return end > m ? end : m;
       }, dataRef);
 
@@ -151,7 +156,7 @@ export default function ProventosRecebidosPage() {
       if (myVersion !== calcVersionRef.current) { setLoading(false); return; }
 
       for (const prod of rfProducts) {
-        const endDate = (prod as any).data_calculo || dataRef;
+        const endDate = getProdutoCalcEnd(prod, dataRef);
         const productMovs = movByCodigo.get(prod.codigo_custodia) || [];
         const movsHash = buildMovsHash(productMovs);
 
