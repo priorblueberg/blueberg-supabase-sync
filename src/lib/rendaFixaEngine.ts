@@ -365,12 +365,12 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
 
     const multiplicadorDia = dailyMult;
 
-    // R: Apoio para o cupom automático
+    // R: Apoio para o cupom automático (arredondado a 2 casas para alinhar com Gorila)
     let apoioCupom: number;
     if (isDataInicio) {
       apoioCupom = aplicacoes;
     } else {
-      apoioCupom = prevLiquido * (1 + dailyMult) + aplicacoes;
+      apoioCupom = Math.round((prevLiquido * (1 + dailyMult) + aplicacoes) * 100) / 100;
     }
 
     // U: Valor Investido
