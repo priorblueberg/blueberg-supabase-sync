@@ -198,6 +198,8 @@ export default function ProventosRecebidosPage() {
           engineRows = fullRows;
         }
 
+        const vencimento = (prod as any).vencimento as string | null;
+        const dataResgateTotal = (prod as any).resgate_total as string | null;
         for (const row of engineRows) {
           if (row.pagamentoJuros > 0.01) {
             allProventos.push({
@@ -205,6 +207,16 @@ export default function ProventosRecebidosPage() {
               nome: prod.nome || "—",
               tipo: "Rendimentos",
               valor: row.pagamentoJuros,
+            });
+          }
+          // Amortização: principal devolvido no resgate total/vencimento (sem juros)
+          const isFinalDay = (!!vencimento && row.data === vencimento) || (!!dataResgateTotal && row.data === dataResgateTotal);
+          if (isFinalDay && row.resgates > 0.01) {
+            allProventos.push({
+              data: row.data,
+              nome: prod.nome || "—",
+              tipo: "Amortização",
+              valor: row.resgates,
             });
           }
         }

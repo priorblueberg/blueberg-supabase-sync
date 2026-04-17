@@ -242,11 +242,17 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                     <TableBody>
                       {movs.map((m) => {
                         const isAuto = m.origem === "automatico";
+                        const isResgateVenc = m.tipo_movimentacao === "Resgate no Vencimento" || m.tipo_movimentacao === "Resgate Total";
+                        const jurosDoDia = isResgateVenc
+                          ? pagamentosJuros.filter((p) => p.data === m.data).reduce((s, p) => s + p.valor, 0)
+                          : 0;
+                        const displayTipo = isResgateVenc ? "Amortização" : m.tipo_movimentacao;
+                        const displayValor = isResgateVenc ? Math.max(0, m.valor - jurosDoDia) : m.valor;
                         return (
                           <TableRow key={m.id}>
                             <TableCell className="whitespace-nowrap">{fmtDate(m.data)}</TableCell>
-                            <TableCell className="whitespace-nowrap">{m.tipo_movimentacao}</TableCell>
-                            <TableCell className="whitespace-nowrap">{fmtBrl(m.valor)}</TableCell>
+                            <TableCell className="whitespace-nowrap">{displayTipo}</TableCell>
+                            <TableCell className="whitespace-nowrap">{fmtBrl(displayValor)}</TableCell>
                             {!isPoupanca && <TableCell className="whitespace-nowrap">{fmtQty(m.quantidade)}</TableCell>}
                             {!isPoupanca && <TableCell className="whitespace-nowrap">{m.preco_unitario != null ? (isMoedasCategoria(data.nome) ? fmtBrl4(m.preco_unitario) : fmtBrl(m.preco_unitario)) : "—"}</TableCell>}
                             <TableCell>
