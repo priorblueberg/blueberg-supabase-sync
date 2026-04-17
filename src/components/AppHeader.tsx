@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
+import { useBoletaModal } from "@/contexts/BoletaModalContext";
 import { recalculateAllForDataReferencia } from "@/lib/syncEngine";
 import { invalidateAllCaches } from "@/lib/dataCache";
 import { invalidateEngineCache } from "@/lib/engineCache";
@@ -40,6 +41,7 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
+  const { openBoleta } = useBoletaModal();
 
   const isStagedSameAsApplied = format(stagedDate, "yyyy-MM-dd") === format(dataReferencia, "yyyy-MM-dd");
 
@@ -143,7 +145,7 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
 
         <div className={`flex items-center gap-4${disableControls ? " pointer-events-none opacity-40" : ""}`}>
           <button
-            onClick={() => navigate("/cadastrar-transacao")}
+            onClick={() => openBoleta({ origin: "header" })}
             className="flex items-center gap-1 rounded-md border border-primary px-2 py-1 text-xs text-primary hover:bg-primary hover:text-primary-foreground bg-background"
             style={{ transition: "all 120ms linear" }}
           >

@@ -1,4 +1,3 @@
-import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -6,6 +5,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useBoletaModal } from "@/contexts/BoletaModalContext";
 import welcomeHeaderImg from "@/assets/welcome-investments-header.jpg";
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
 }
 
 export function OnboardingRendaFixaModal({ open, onOpenChange }: Props) {
-  const navigate = useNavigate();
+  const { openBoleta } = useBoletaModal();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,7 +87,7 @@ export function OnboardingRendaFixaModal({ open, onOpenChange }: Props) {
                 type="button"
                 onClick={() => {
                   onOpenChange(false);
-                  navigate("/cadastrar-transacao");
+                  openBoleta({ origin: "header" });
                 }}
                 className="text-primary font-semibold underline underline-offset-2 hover:text-primary/80 cursor-pointer bg-transparent border-none p-0"
               >
@@ -122,7 +122,7 @@ export function OnboardingRendaFixaModal({ open, onOpenChange }: Props) {
           <div className="mt-4 flex justify-end">
             <Button onClick={() => {
               onOpenChange(false);
-              navigate("/cadastrar-transacao");
+              openBoleta({ origin: "header" });
             }}>
               Cadastrar meu primeiro título
             </Button>
