@@ -27,7 +27,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import BoletaCustodiaDialog, { type CustodiaRowForBoleta } from "@/components/BoletaCustodiaDialog";
+import { type CustodiaRowForBoleta } from "@/components/BoletaCustodiaDialog";
+import { useBoletaModal } from "@/contexts/BoletaModalContext";
 import PosicaoDetalheDialog, { type PosicaoDetalheData } from "@/components/PosicaoDetalheDialog";
 import CarteirasSummaryTable, { type CarteiraSummaryRow } from "@/components/CarteirasSummaryTable";
 
@@ -93,11 +94,9 @@ export default function PosicaoConsolidadaPage() {
   const calcVersionRef = useRef(0);
 
   // Dialog states
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogTipo, setDialogTipo] = useState<"Aplicação" | "Resgate">("Aplicação");
-  const [dialogRow, setDialogRow] = useState<CustodiaRowForBoleta | null>(null);
   const [deleteRow, setDeleteRow] = useState<PosicaoRow | null>(null);
   const [detalheRow, setDetalheRow] = useState<PosicaoRow | null>(null);
+  const { openBoleta } = useBoletaModal();
 
   useEffect(() => {
     if (!user) return;
@@ -532,10 +531,10 @@ export default function PosicaoConsolidadaPage() {
   const totalGanho = useMemo(() => filteredRows.reduce((s, r) => s + r.ganhoFinanceiro, 0), [filteredRows]);
 
   // Boleta helpers
-  function openBoleta(row: PosicaoRow, tipo: "Aplicação" | "Resgate", e: React.MouseEvent) {
+  function openBoletaForRow(row: PosicaoRow, tipo: "Aplicação" | "Resgate", e: React.MouseEvent) {
     e.stopPropagation();
     const p = row.product;
-    setDialogRow({
+    const prefill: CustodiaRowForBoleta = {
       id: p.id,
       codigo_custodia: p.codigo_custodia,
       data_inicio: p.data_inicio,
@@ -556,9 +555,8 @@ export default function PosicaoConsolidadaPage() {
       preco_unitario: p.preco_unitario,
       valor_investido: p.valor_investido,
       resgate_total: p.resgate_total,
-    });
-    setDialogTipo(tipo);
-    setDialogOpen(true);
+    };
+    openBoleta({ origin: "posicao", tipo, prefill });
   }
 
   async function handleDelete() {
