@@ -161,6 +161,8 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
   const [submitting, setSubmitting] = useState(false);
   const [editLoaded, setEditLoaded] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
+  const [vencimentoRemanejado, setVencimentoRemanejado] = useState(false);
+  const [dataNaoUtilError, setDataNaoUtilError] = useState<string | null>(null);
 
   const categoriaSelecionada = categorias.find((c) => c.id === categoriaId);
   const produtoSelecionado = produtos.find((p) => p.id === produtoId);
@@ -201,8 +203,43 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
       setCotacaoNegociacao(""); setCotacaoMoeda(null); setQuantidadeMoeda(null);
       setResgateCotacaoRef(null); setResgateCotacaoNeg(""); setValorEmEspecie(false);
       setEditLoaded(false); setValidationErrors(new Set());
+      setVencimentoRemanejado(false); setDataNaoUtilError(null);
     }
   }, [open]);
+
+  // Helper: encontra primeiro dia útil >= data dada (consultando calendario_dias_uteis)
+  async function findNextDiaUtil(dateISO: string): Promise<string | null> {
+    const start = new Date(dateISO + "T00:00:00");
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const iso = format(d, "yyyy-MM-dd");
+      const { data: row } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", iso).maybeSingle();
+      if (row?.dia_util) return iso;
+    }
+    return null;
+  }
+
+  async function handleVencimentoBlur() {
+    if (!vencimento || isPoupanca || !isRendaFixa || lockTitleFields) return;
+    const { data: row } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", vencimento).maybeSingle();
+    if (row?.dia_util) { setVencimentoRemanejado(false); return; }
+    const nextDU = await findNextDiaUtil(vencimento);
+    if (nextDU && nextDU !== vencimento) {
+      setVencimento(nextDU);
+      setVencimentoRemanejado(true);
+    }
+  }
+
+  async function handleDataTransacaoBlur() {
+    setDataNaoUtilError(null);
+    if (!data) return;
+    if (isPoupanca || (isMoedas && isMoeda)) return;
+    const { data: row } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", data).maybeSingle();
+    if (!row || !row.dia_util) {
+      setDataNaoUtilError("A data selecionada não é um dia útil");
+    }
+  }
 
   // Load categorias on mount
   useEffect(() => {
@@ -520,7 +557,7 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
     if (!isPoupanca && !(isMoedas && isMoeda)) {
       const { data: diaUtil } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", data).single();
       if (!diaUtil) { toast.error("A data informada não foi encontrada no calendário. Verifique se é um dia útil válido."); return; }
-      if (!diaUtil.dia_util) { toast.error("A Data de Transação deve ser um dia útil."); return; }
+      if (!diaUtil.dia_util) { setDataNaoUtilError("A data selecionada não é um dia útil"); toast.error("A Data de Transação deve ser um dia útil."); return; }
     }
 
     setSubmitting(true);
@@ -713,8 +750,10 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
                   <div className="grid grid-cols-4 gap-4">
                     <Field label="Data de Transação" required>
                       <input type="date" value={data}
-                        onChange={(e) => { setData(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
-                        className={`input-field ${validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`} />
+                        onChange={(e) => { setData(e.target.value); setDataNaoUtilError(null); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
+                        onBlur={handleDataTransacaoBlur}
+                        className={`input-field ${dataNaoUtilError || validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`} />
+                      {dataNaoUtilError && <p className="text-xs text-destructive mt-1">{dataNaoUtilError}</p>}
                     </Field>
                     <Field label="Valor Inicial" required>
                       <div className="relative">
@@ -748,8 +787,10 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
                     </Field>
                     <Field label="Vencimento" required>
                       <input type="date" value={vencimento} min={data || undefined} disabled={lockTitleFields}
-                        onChange={(e) => { setVencimento(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("vencimento"); return n; }); }}
+                        onChange={(e) => { setVencimento(e.target.value); setVencimentoRemanejado(false); setValidationErrors((prev) => { const n = new Set(prev); n.delete("vencimento"); return n; }); }}
+                        onBlur={handleVencimentoBlur}
                         className={`input-field ${lockTitleFields ? "opacity-60" : ""} ${validationErrors.has("vencimento") ? "border-destructive ring-1 ring-destructive" : ""}`} />
+                      {vencimentoRemanejado && <p className="text-xs text-amber-600 mt-1">Data de Vencimento remanejada para o primeiro dia útil após data digitada</p>}
                     </Field>
                   </div>
 

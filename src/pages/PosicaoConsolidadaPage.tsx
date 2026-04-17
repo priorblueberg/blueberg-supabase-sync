@@ -76,9 +76,10 @@ let _cachedRentabilidade = 0;
 let _cachedCarteiraSummary: CarteiraSummaryRow[] = [];
 let _cachedPeriodoInicio: string | null = null;
 let _cachedPoupancaEngineRows = new Map<number, DailyRow[]>();
+let _cachedRFEngineRows = new Map<number, DailyRow[]>();
 
 import { registerCacheReset } from "@/lib/resetCaches";
-registerCacheReset(() => { _cachedVersion = null; _cachedRows = []; _cachedRentabilidade = 0; _cachedCarteiraSummary = []; _cachedPeriodoInicio = null; _cachedPoupancaEngineRows = new Map(); });
+registerCacheReset(() => { _cachedVersion = null; _cachedRows = []; _cachedRentabilidade = 0; _cachedCarteiraSummary = []; _cachedPeriodoInicio = null; _cachedPoupancaEngineRows = new Map(); _cachedRFEngineRows = new Map(); });
 
 export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
@@ -288,6 +289,7 @@ export default function PosicaoConsolidadaPage() {
         }
 
         allProductRows.push(engineRows);
+        _cachedRFEngineRows.set(product.codigo_custodia, engineRows);
 
         const lastRow = engineRows.length > 0 ? engineRows[engineRows.length - 1] : null;
         if (lastRow) {
@@ -693,9 +695,7 @@ export default function PosicaoConsolidadaPage() {
                     <TableCell className="text-right font-medium">{pctPortfolio.toFixed(2)}%</TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
-                        <Button variant="outline" size="sm" className="text-xs h-7 px-2" onClick={(e) => openBoletaForRow(row, "Aplicação", e)}>Aplicação</Button>
-                        <Button variant="outline" size="sm" className="text-xs h-7 px-2" onClick={(e) => openBoletaForRow(row, "Resgate", e)}>Resgate</Button>
-                        <button onClick={(e) => { e.stopPropagation(); setDeleteRow(row); }} className="text-muted-foreground hover:text-destructive transition-colors ml-1" title="Excluir ativo">
+                        <button onClick={(e) => { e.stopPropagation(); setDeleteRow(row); }} className="text-muted-foreground hover:text-destructive transition-colors" title="Excluir ativo">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -724,6 +724,7 @@ export default function PosicaoConsolidadaPage() {
       {detalheRow && user && (() => {
         const isPoupanca = detalheRow.product.modalidade === "Poupança";
         const jurosAniversario: { data: string; valor: number }[] = [];
+        const pagamentosJuros: { data: string; valor: number }[] = [];
         if (isPoupanca) {
           const engineRows = _cachedPoupancaEngineRows.get(detalheRow.product.codigo_custodia);
           if (engineRows) {
@@ -733,7 +734,41 @@ export default function PosicaoConsolidadaPage() {
               }
             }
           }
+        } else {
+          const engineRows = _cachedRFEngineRows.get(detalheRow.product.codigo_custodia);
+          if (engineRows) {
+            for (const row of engineRows) {
+              if (row.jurosPago > 0.001) {
+                pagamentosJuros.push({ data: row.data, valor: row.jurosPago });
+              }
+            }
+          }
         }
+        const p = detalheRow.product;
+        const prefill: CustodiaRowForBoleta = {
+          id: p.id,
+          codigo_custodia: p.codigo_custodia,
+          data_inicio: p.data_inicio,
+          tipo_movimentacao: "",
+          nome: p.nome,
+          categoria: p.categoria_nome,
+          categoria_id: p.categoria_id,
+          produto: p.produto_nome,
+          produto_id: p.produto_id,
+          instituicao: p.instituicao_nome,
+          instituicao_id: p.instituicao_id,
+          emissor: p.emissor_nome,
+          emissor_id: p.emissor_id,
+          modalidade: p.modalidade,
+          indexador: p.indexador,
+          taxa: p.taxa,
+          pagamento: p.pagamento,
+          vencimento: p.vencimento,
+          preco_unitario: p.preco_unitario,
+          quantidade: p.quantidade ?? null,
+          valor_investido: p.valor_investido,
+          resgate_total: p.resgate_total,
+        };
         return (
           <PosicaoDetalheDialog
             open={!!detalheRow}
@@ -743,6 +778,8 @@ export default function PosicaoConsolidadaPage() {
             dataReferenciaISO={dataReferenciaISO}
             onDataChanged={() => { calcVersionRef.current += 1; calculate(calcVersionRef.current); applyDataReferencia(); }}
             jurosAniversario={jurosAniversario}
+            pagamentosJuros={pagamentosJuros}
+            prefill={prefill}
           />
         );
       })()}

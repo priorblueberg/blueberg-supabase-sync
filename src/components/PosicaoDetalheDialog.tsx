@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Pencil, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -17,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { useBoletaModal } from "@/contexts/BoletaModalContext";
+import type { CustodiaRowForBoleta } from "@/types/boleta";
 
 interface Movimentacao {
   id: string;
@@ -53,6 +53,8 @@ interface Props {
   dataReferenciaISO: string;
   onDataChanged: () => void;
   jurosAniversario?: { data: string; valor: number }[];
+  pagamentosJuros?: { data: string; valor: number }[];
+  prefill?: CustodiaRowForBoleta;
 }
 
 function fmtBrl(v: number) {
@@ -71,7 +73,7 @@ function isMoedasCategoria(nome: string): boolean {
   return nome.toLowerCase().includes("dólar") || nome.toLowerCase().includes("euro") || nome.toLowerCase().includes("dollar");
 }
 
-export default function PosicaoDetalheDialog({ open, onClose, data, userId, dataReferenciaISO, onDataChanged, jurosAniversario = [] }: Props) {
+export default function PosicaoDetalheDialog({ open, onClose, data, userId, dataReferenciaISO, onDataChanged, jurosAniversario = [], pagamentosJuros = [], prefill }: Props) {
   const isPoupanca = data.modalidade === "Poupança";
   const { openBoleta } = useBoletaModal();
   const [movs, setMovs] = useState<Movimentacao[]>([]);
@@ -81,7 +83,7 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
   useEffect(() => {
     if (open) fetchMovs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, dataReferenciaISO]);
 
   async function fetchMovs() {
     setLoading(true);
@@ -90,6 +92,7 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
       .select("id, data, tipo_movimentacao, valor, quantidade, preco_unitario, origem")
       .eq("codigo_custodia", data.codigoCustodia)
       .eq("user_id", userId)
+      .lte("data", dataReferenciaISO)
       .order("data", { ascending: true });
 
     // Deduplicate: remove identical auto rows (same date + type + valor)
@@ -104,19 +107,34 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
       deduped.push(row);
     }
 
-    // Merge synthetic juros rows
-    const jurosRows: Movimentacao[] = jurosAniversario.map((j, idx) => ({
-      id: `juros-${j.data}-${idx}`,
-      data: j.data,
-      tipo_movimentacao: "Rendimentos",
-      valor: j.valor,
-      quantidade: null,
-      preco_unitario: null,
-      origem: "automatico",
-    }));
+    // Merge synthetic juros rows (Poupança aniversário)
+    const jurosRows: Movimentacao[] = jurosAniversario
+      .filter((j) => j.data <= dataReferenciaISO)
+      .map((j, idx) => ({
+        id: `juros-${j.data}-${idx}`,
+        data: j.data,
+        tipo_movimentacao: "Rendimentos",
+        valor: j.valor,
+        quantidade: null,
+        preco_unitario: null,
+        origem: "automatico",
+      }));
+
+    // Merge synthetic pagamento de juros (Renda Fixa)
+    const pagJurosRows: Movimentacao[] = pagamentosJuros
+      .filter((p) => p.data <= dataReferenciaISO)
+      .map((p, idx) => ({
+        id: `pagjuros-${p.data}-${idx}`,
+        data: p.data,
+        tipo_movimentacao: "Pagamento de Juros",
+        valor: p.valor,
+        quantidade: null,
+        preco_unitario: null,
+        origem: "automatico",
+      }));
 
     // For Poupança, compute running balance (ascending order, then reverse for display)
-    const sortedAsc = [...deduped, ...jurosRows].sort((a, b) => a.data.localeCompare(b.data));
+    const sortedAsc = [...deduped, ...jurosRows, ...pagJurosRows].sort((a, b) => a.data.localeCompare(b.data));
     if (isPoupanca) {
       let saldo = 0;
       for (const m of sortedAsc) {
@@ -125,7 +143,6 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
         } else if (m.tipo_movimentacao === "Resgate" || m.tipo_movimentacao === "Resgate Total" || m.tipo_movimentacao === "Resgate Parcial") {
           saldo -= m.valor;
         } else {
-          // Rendimentos / juros
           saldo += m.valor;
         }
         (m as any)._saldo = saldo;
@@ -164,11 +181,17 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
     setDeleteId(null);
   }
 
+  function handleAplicacaoResgate(tipo: "Aplicação" | "Resgate") {
+    if (!prefill) return;
+    onClose();
+    openBoleta({ origin: "posicao", tipo, prefill });
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="max-w-4xl w-[95vw] max-h-[85vh] overflow-y-auto">
-          <DialogHeader className="pr-8">
+        <DialogContent className="max-w-4xl w-[95vw] h-[85vh] p-0 flex flex-col overflow-hidden">
+          <DialogHeader className="pr-8 px-6 pt-6 shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <DialogTitle className="text-lg font-bold">{data.nome}</DialogTitle>
@@ -182,24 +205,32 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
             </div>
           </DialogHeader>
 
-          <Tabs defaultValue="historico" className="mt-2">
-            <TabsList>
-              <TabsTrigger value="historico">Histórico</TabsTrigger>
-              <TabsTrigger value="dados">Dados</TabsTrigger>
-            </TabsList>
+          <Tabs defaultValue="historico" className="mt-2 flex flex-col flex-1 min-h-0 px-6 pb-6">
+            <div className="flex items-center justify-between gap-4 shrink-0">
+              <TabsList>
+                <TabsTrigger value="historico">Histórico</TabsTrigger>
+                <TabsTrigger value="dados">Dados</TabsTrigger>
+              </TabsList>
+              {!isPoupanca && prefill && (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => handleAplicacaoResgate("Aplicação")}>Aplicação</Button>
+                  <Button variant="outline" size="sm" onClick={() => handleAplicacaoResgate("Resgate")}>Resgate</Button>
+                </div>
+              )}
+            </div>
 
-            <TabsContent value="historico">
+            <TabsContent value="historico" className="flex-1 min-h-0 mt-3 overflow-hidden">
               {loading ? (
                 <p className="text-sm text-muted-foreground py-4">Carregando...</p>
               ) : movs.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4">Nenhuma movimentação.</p>
               ) : (
-                <div className="rounded-md border overflow-hidden">
+                <div className="rounded-md border h-full overflow-auto">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 bg-background z-10">
                       <TableRow>
                         <TableHead className="w-[100px]">Data</TableHead>
-                        <TableHead className="w-[140px]">Tipo</TableHead>
+                        <TableHead className="w-[160px]">Tipo</TableHead>
                         <TableHead className="w-[130px]">Valor</TableHead>
                         {!isPoupanca && <TableHead className="w-[100px]">Quantidade</TableHead>}
                         {!isPoupanca && <TableHead className="w-[120px]">Preço Unit.</TableHead>}
@@ -255,7 +286,7 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
               )}
             </TabsContent>
 
-            <TabsContent value="dados">
+            <TabsContent value="dados" className="flex-1 min-h-0 mt-3 overflow-auto">
               {isPoupanca ? (
                 <div className="grid grid-cols-2 gap-x-8 gap-y-3 py-2 text-sm">
                   <DataField label="Nome do Ativo" value={data.nome} />
@@ -286,7 +317,7 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteId?.tipo_movimentacao === "Aplicação Inicial"
-                ? "Ao excluir a Aplicação Inicial, o ativo e todas as movimentações serão removidos permanentemente."
+                ? "Ao excluir a Aplicação Inicial, o ativo e todas as movimentações serão removidas permanentemente."
                 : "Deseja excluir esta movimentação?"}
             </AlertDialogDescription>
           </AlertDialogHeader>
