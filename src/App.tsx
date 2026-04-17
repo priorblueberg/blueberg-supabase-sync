@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, Outlet } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -43,7 +43,8 @@ import {
 
 import NotFound from "./pages/NotFound";
 
-export const queryClient = new QueryClient();
+export { queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 
 const LazyFallback = () => (
   <div className="flex min-h-[200px] items-center justify-center text-muted-foreground">
