@@ -718,7 +718,7 @@ export default function PosicaoConsolidadaPage() {
                 <TableCell>{fmtBrl(totalGanho)}</TableCell>
                 <TableCell>{carteiraRentabilidade.toFixed(2)}%</TableCell>
                 <TableCell />
-                <TableCell className="text-right">100,00%</TableCell>
+                <TableCell className="text-right" />
                 <TableCell />
               </TableRow>
             </TableBody>
