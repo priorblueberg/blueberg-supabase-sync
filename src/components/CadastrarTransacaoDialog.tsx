@@ -203,8 +203,43 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
       setCotacaoNegociacao(""); setCotacaoMoeda(null); setQuantidadeMoeda(null);
       setResgateCotacaoRef(null); setResgateCotacaoNeg(""); setValorEmEspecie(false);
       setEditLoaded(false); setValidationErrors(new Set());
+      setVencimentoRemanejado(false); setDataNaoUtilError(null);
     }
   }, [open]);
+
+  // Helper: encontra primeiro dia útil >= data dada (consultando calendario_dias_uteis)
+  async function findNextDiaUtil(dateISO: string): Promise<string | null> {
+    const start = new Date(dateISO + "T00:00:00");
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const iso = format(d, "yyyy-MM-dd");
+      const { data: row } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", iso).maybeSingle();
+      if (row?.dia_util) return iso;
+    }
+    return null;
+  }
+
+  async function handleVencimentoBlur() {
+    if (!vencimento || isPoupanca || !isRendaFixa || lockTitleFields) return;
+    const { data: row } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", vencimento).maybeSingle();
+    if (row?.dia_util) { setVencimentoRemanejado(false); return; }
+    const nextDU = await findNextDiaUtil(vencimento);
+    if (nextDU && nextDU !== vencimento) {
+      setVencimento(nextDU);
+      setVencimentoRemanejado(true);
+    }
+  }
+
+  async function handleDataTransacaoBlur() {
+    setDataNaoUtilError(null);
+    if (!data) return;
+    if (isPoupanca || (isMoedas && isMoeda)) return;
+    const { data: row } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", data).maybeSingle();
+    if (!row || !row.dia_util) {
+      setDataNaoUtilError("A data selecionada não é um dia útil");
+    }
+  }
 
   // Load categorias on mount
   useEffect(() => {
