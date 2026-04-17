@@ -43,7 +43,8 @@ import {
 
 import NotFound from "./pages/NotFound";
 
-export const queryClient = new QueryClient();
+export { queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 
 const LazyFallback = () => (
   <div className="flex min-h-[200px] items-center justify-center text-muted-foreground">
