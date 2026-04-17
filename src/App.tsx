@@ -93,6 +93,7 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <BoletaModalProvider>
+        <DataReferenciaProvider>
         <Toaster />
         <Sonner />
         <GlobalCadastrarTransacaoDialog />
