@@ -90,9 +90,9 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
     }
 
     const { liquido, liquido2, rentDiariaRS, aplicacoes } = agg;
-    // TWR (Modified Dietz simplificado): rentabilidade do dia = ganho / (patrimônio anterior + aplicações do dia)
-    // Inclui aplicações do dia na base para que aportes em novos títulos durante o período
-    // não distorçam a rentabilidade diária consolidada.
+    // TWR puro: rentabilidade do dia = ganho do dia / patrimônio do início do dia.
+    // Patrimônio do início do dia = liquido2 do dia anterior + aplicações do dia (capital novo
+    // que entrou e já está rendendo desde hoje). Aportes não geram retorno por si só.
     const baseDoDia = prevLiquido2 + aplicacoes;
     const rentDiariaPct = baseDoDia > 0.01 ? rentDiariaRS / baseDoDia : 0;
 
