@@ -387,8 +387,16 @@ export default function CarteiraRendaFixaPage() {
           : product.vencimento
             ? product.vencimento <= dataCalculo
             : false;
-        const usePeriodic = product.pagamento && product.pagamento !== "No Vencimento";
-        const rentPct = lastRow ? ((usePeriodic ? lastRow.rentAcumulada2 : lastRow.rentabilidadeAcumuladaPct) * 100) : 0;
+        // Use TWR (mesma lógica da Posição Consolidada) para garantir consistência
+        // entre rentabilidade do título em qualquer tela.
+        const rfCarteiraTitulo = calcularCarteiraRendaFixa({
+          productRows: [rows],
+          calendario,
+          dataInicio,
+          dataCalculo,
+        });
+        const lastCart = rfCarteiraTitulo.length > 0 ? rfCarteiraTitulo[rfCarteiraTitulo.length - 1] : null;
+        const rentPct = lastCart ? lastCart.rentAcumuladaPct * 100 : 0;
         return {
           nome: product.nome || product.produto_nome,
           valorAtualizado: isEncerradoNaDataCalculo ? 0 : (lastRow?.liquido ?? 0),

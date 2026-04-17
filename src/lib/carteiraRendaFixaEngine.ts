@@ -89,10 +89,12 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
       continue;
     }
 
-    const { liquido, liquido2, rentDiariaRS } = agg;
-    // TWR puro: rentabilidade do dia = ganho / patrimônio do dia anterior
-    // (mesmo método usado pelo título individual via cota e pela Carteira de Investimentos)
-    const rentDiariaPct = prevLiquido2 > 0.01 ? rentDiariaRS / prevLiquido2 : 0;
+    const { liquido, liquido2, rentDiariaRS, aplicacoes } = agg;
+    // TWR (Modified Dietz simplificado): rentabilidade do dia = ganho / (patrimônio anterior + aplicações do dia)
+    // Inclui aplicações do dia na base para que aportes em novos títulos durante o período
+    // não distorçam a rentabilidade diária consolidada.
+    const baseDoDia = prevLiquido2 + aplicacoes;
+    const rentDiariaPct = baseDoDia > 0.01 ? rentDiariaRS / baseDoDia : 0;
 
     rentAcumuladaRS += rentDiariaRS;
     rentAcumuladaPct = (1 + rentAcumuladaPct) * (1 + rentDiariaPct) - 1;
