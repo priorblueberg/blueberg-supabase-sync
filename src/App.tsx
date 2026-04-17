@@ -136,6 +136,7 @@ const App = () => (
             </Routes>
           </Suspense>
         </BrowserRouter>
+        </DataReferenciaProvider>
         </BoletaModalProvider>
       </TooltipProvider>
     </QueryClientProvider>
