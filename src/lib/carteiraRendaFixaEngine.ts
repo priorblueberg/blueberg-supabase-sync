@@ -108,7 +108,7 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
       rentAcumuladaPct,
     });
 
-    
+    prevLiquido2 = liquido2;
   }
 
   return result;
