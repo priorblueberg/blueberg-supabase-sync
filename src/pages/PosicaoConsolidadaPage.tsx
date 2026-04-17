@@ -716,18 +716,7 @@ export default function PosicaoConsolidadaPage() {
         </div>
       )}
 
-      {/* Boleta */}
-      {dialogRow && user && (
-        <BoletaCustodiaDialog
-          open={dialogOpen}
-          onClose={() => setDialogOpen(false)}
-          tipo={dialogTipo}
-          row={dialogRow}
-          userId={user.id}
-          dataReferenciaISO={dataReferenciaISO}
-          onSuccess={() => { calcVersionRef.current += 1; calculate(calcVersionRef.current); applyDataReferencia(); }}
-        />
-      )}
+      {/* Boleta agora é global via BoletaModalContext */}
 
       {/* Detalhe */}
       {detalheRow && user && (() => {
