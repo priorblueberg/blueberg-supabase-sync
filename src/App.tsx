@@ -6,6 +6,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
+import { BoletaModalProvider } from "@/contexts/BoletaModalContext";
+import { GlobalCadastrarTransacaoDialog } from "@/components/CadastrarTransacaoDialog";
 
 // Lazy-loaded heavy pages
 const CarteiraInvestimentosPage = lazy(() => import("@/pages/CarteiraInvestimentosPage"));
@@ -13,7 +15,6 @@ const CarteiraRendaFixa = lazy(() => import("@/pages/CarteiraRendaFixaPage"));
 const CarteiraCambioPage = lazy(() => import("@/pages/CarteiraCambioPage"));
 const CalculadoraPage = lazy(() => import("@/pages/CalculadoraPage"));
 const PosicaoConsolidadaPage = lazy(() => import("@/pages/PosicaoConsolidadaPage"));
-const CadastrarTransacaoPage = lazy(() => import("@/pages/CadastrarTransacaoPage"));
 const ProventosRecebidosPage = lazy(() => import("@/pages/ProventosRecebidosPage"));
 const MovimentacoesPage = lazy(() => import("@/pages/MovimentacoesPage"));
 const CustodiaPage = lazy(() => import("@/pages/CustodiaPage"));
@@ -90,8 +91,10 @@ const App = () => (
   <AuthProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <BoletaModalProvider>
         <Toaster />
         <Sonner />
+        <GlobalCadastrarTransacaoDialog />
         <BrowserRouter>
           <Suspense fallback={<LazyFallback />}>
             <Routes>
@@ -121,7 +124,6 @@ const App = () => (
                   <Route path="/custodia" element={<CustodiaPage />} />
                   <Route path="/controle-carteiras" element={<ControleCarteirasPage />} />
                   <Route path="/proventos" element={<ProventosRecebidosPage />} />
-                  <Route path="/cadastrar-transacao" element={<CadastrarTransacaoPage />} />
                   <Route path="/configuracoes" element={<ConfiguracoesPage />} />
                   <Route path="/usuario" element={<div><h1 className="text-lg font-semibold text-foreground">Usuário</h1></div>} />
                   <Route path="/admin" element={<AdminPage />} />
@@ -132,6 +134,7 @@ const App = () => (
             </Routes>
           </Suspense>
         </BrowserRouter>
+        </BoletaModalProvider>
       </TooltipProvider>
     </QueryClientProvider>
   </AuthProvider>
