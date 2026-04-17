@@ -695,9 +695,7 @@ export default function PosicaoConsolidadaPage() {
                     <TableCell className="text-right font-medium">{pctPortfolio.toFixed(2)}%</TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
-                        <Button variant="outline" size="sm" className="text-xs h-7 px-2" onClick={(e) => openBoletaForRow(row, "Aplicação", e)}>Aplicação</Button>
-                        <Button variant="outline" size="sm" className="text-xs h-7 px-2" onClick={(e) => openBoletaForRow(row, "Resgate", e)}>Resgate</Button>
-                        <button onClick={(e) => { e.stopPropagation(); setDeleteRow(row); }} className="text-muted-foreground hover:text-destructive transition-colors ml-1" title="Excluir ativo">
+                        <button onClick={(e) => { e.stopPropagation(); setDeleteRow(row); }} className="text-muted-foreground hover:text-destructive transition-colors" title="Excluir ativo">
                           <Trash2 size={14} />
                         </button>
                       </div>
