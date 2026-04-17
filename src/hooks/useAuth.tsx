@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { resetAllAppCaches } from "@/lib/resetCaches";
-import { queryClient } from "@/App";
+import { queryClient } from "@/lib/queryClient";
 import type { User } from "@supabase/supabase-js";
 
 interface AuthContextType {
