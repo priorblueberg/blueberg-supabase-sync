@@ -557,7 +557,7 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
     if (!isPoupanca && !(isMoedas && isMoeda)) {
       const { data: diaUtil } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", data).single();
       if (!diaUtil) { toast.error("A data informada não foi encontrada no calendário. Verifique se é um dia útil válido."); return; }
-      if (!diaUtil.dia_util) { toast.error("A Data de Transação deve ser um dia útil."); return; }
+      if (!diaUtil.dia_util) { setDataNaoUtilError("A data selecionada não é um dia útil"); toast.error("A Data de Transação deve ser um dia útil."); return; }
     }
 
     setSubmitting(true);
