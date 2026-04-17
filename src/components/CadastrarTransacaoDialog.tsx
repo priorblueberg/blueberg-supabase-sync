@@ -787,8 +787,10 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
                     </Field>
                     <Field label="Vencimento" required>
                       <input type="date" value={vencimento} min={data || undefined} disabled={lockTitleFields}
-                        onChange={(e) => { setVencimento(e.target.value); setValidationErrors((prev) => { const n = new Set(prev); n.delete("vencimento"); return n; }); }}
+                        onChange={(e) => { setVencimento(e.target.value); setVencimentoRemanejado(false); setValidationErrors((prev) => { const n = new Set(prev); n.delete("vencimento"); return n; }); }}
+                        onBlur={handleVencimentoBlur}
                         className={`input-field ${lockTitleFields ? "opacity-60" : ""} ${validationErrors.has("vencimento") ? "border-destructive ring-1 ring-destructive" : ""}`} />
+                      {vencimentoRemanejado && <p className="text-xs text-amber-600 mt-1">Data de Vencimento remanejada para o primeiro dia útil após data digitada</p>}
                     </Field>
                   </div>
 
