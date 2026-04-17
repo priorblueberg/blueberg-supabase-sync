@@ -69,7 +69,7 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
   const result: CarteiraRFRow[] = [];
   let rentAcumuladaRS = 0;
   let rentAcumuladaPct = 0;
-  let prevLiquido2 = 0;
+  let prevLiquido = 0; // patrimônio consolidado APÓS resgates do dia anterior (capital efetivamente trabalhando)
 
   for (const cal of sorted) {
     const agg = dateAgg.get(cal.data);
@@ -90,10 +90,10 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
     }
 
     const { liquido, liquido2, rentDiariaRS, aplicacoes } = agg;
-    // TWR (Modified Dietz simplificado): rentabilidade do dia = ganho / (patrimônio anterior + aplicações do dia)
-    // Inclui aplicações do dia na base para que aportes em novos títulos durante o período
-    // não distorçam a rentabilidade diária consolidada.
-    const baseDoDia = prevLiquido2 + aplicacoes;
+    // TWR (Modified Dietz simplificado): rentabilidade do dia = ganho / (patrimônio anterior pós-resgates + aplicações do dia)
+    // Usa prevLiquido (pós-resgates) e não prevLiquido2 (pré-resgates), pois títulos liquidados em D-1
+    // não têm capital trabalhando em D — caso contrário a base fica inflada e a rentabilidade subestimada.
+    const baseDoDia = prevLiquido + aplicacoes;
     const rentDiariaPct = baseDoDia > 0.01 ? rentDiariaRS / baseDoDia : 0;
 
     rentAcumuladaRS += rentDiariaRS;
@@ -110,7 +110,7 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
       rentAcumuladaPct,
     });
 
-    prevLiquido2 = liquido2;
+    prevLiquido = liquido;
   }
 
   return result;
