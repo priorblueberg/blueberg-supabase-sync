@@ -69,6 +69,7 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
   const result: CarteiraRFRow[] = [];
   let rentAcumuladaRS = 0;
   let rentAcumuladaPct = 0;
+  let prevLiquido2 = 0;
 
   for (const cal of sorted) {
     const agg = dateAgg.get(cal.data);
@@ -88,9 +89,10 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
       continue;
     }
 
-    const { liquido, liquido2, rentDiariaRS, baseEconomica } = agg;
-    const baseRentabilidade = baseEconomica;
-    const rentDiariaPct = baseRentabilidade > 0.01 ? rentDiariaRS / baseRentabilidade : 0;
+    const { liquido, liquido2, rentDiariaRS } = agg;
+    // TWR puro: rentabilidade do dia = ganho / patrimônio do dia anterior
+    // (mesmo método usado pelo título individual via cota e pela Carteira de Investimentos)
+    const rentDiariaPct = prevLiquido2 > 0.01 ? rentDiariaRS / prevLiquido2 : 0;
 
     rentAcumuladaRS += rentDiariaRS;
     rentAcumuladaPct = (1 + rentAcumuladaPct) * (1 + rentDiariaPct) - 1;
@@ -106,7 +108,7 @@ export function calcularCarteiraRendaFixa(input: CarteiraRFInput): CarteiraRFRow
       rentAcumuladaPct,
     });
 
-    
+    prevLiquido2 = liquido2;
   }
 
   return result;

@@ -347,9 +347,10 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
         dailyMult = 0;
       }
     } else if (isMistaCDI) {
-      // Mista: (1 + CDI Diário anterior) * (1 + Taxa)^(1/252) - 1
+      // Mista: (1 + CDI Diário anterior arredondado a 8 casas - ANBIMA) * (1 + Taxa)^(1/252) - 1
       const prevCdiDiario = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
-      dailyMult = diaUtil ? (1 + prevCdiDiario) * mistaSpreadFactor - 1 : 0;
+      const cdiArredondado = parseFloat(prevCdiDiario.toFixed(8));
+      dailyMult = diaUtil ? (1 + cdiArredondado) * mistaSpreadFactor - 1 : 0;
     } else if (isPosFixadoCDI) {
       const prevCdiDiario = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
       const cdiArredondado = parseFloat(prevCdiDiario.toFixed(8));
