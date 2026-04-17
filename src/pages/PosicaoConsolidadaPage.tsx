@@ -289,6 +289,7 @@ export default function PosicaoConsolidadaPage() {
         }
 
         allProductRows.push(engineRows);
+        _cachedRFEngineRows.set(product.codigo_custodia, engineRows);
 
         const lastRow = engineRows.length > 0 ? engineRows[engineRows.length - 1] : null;
         if (lastRow) {
