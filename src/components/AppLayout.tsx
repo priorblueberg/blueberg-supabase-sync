@@ -33,9 +33,5 @@ function AppLayoutInner() {
 }
 
 export function AppLayout() {
-  return (
-    <DataReferenciaProvider>
-      <AppLayoutInner />
-    </DataReferenciaProvider>
-  );
+  return <AppLayoutInner />;
 }

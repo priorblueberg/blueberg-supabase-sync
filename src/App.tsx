@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
 import { BoletaModalProvider } from "@/contexts/BoletaModalContext";
 import { GlobalCadastrarTransacaoDialog } from "@/components/CadastrarTransacaoDialog";
+import { DataReferenciaProvider } from "@/contexts/DataReferenciaContext";
 
 // Lazy-loaded heavy pages
 const CarteiraInvestimentosPage = lazy(() => import("@/pages/CarteiraInvestimentosPage"));
@@ -92,6 +93,7 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <BoletaModalProvider>
+        <DataReferenciaProvider>
         <Toaster />
         <Sonner />
         <GlobalCadastrarTransacaoDialog />
@@ -134,6 +136,7 @@ const App = () => (
             </Routes>
           </Suspense>
         </BrowserRouter>
+        </DataReferenciaProvider>
         </BoletaModalProvider>
       </TooltipProvider>
     </QueryClientProvider>
