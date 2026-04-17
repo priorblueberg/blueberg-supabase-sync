@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
 import { BoletaModalProvider } from "@/contexts/BoletaModalContext";
 import { GlobalCadastrarTransacaoDialog } from "@/components/CadastrarTransacaoDialog";
+import { DataReferenciaProvider } from "@/contexts/DataReferenciaContext";
 
 // Lazy-loaded heavy pages
 const CarteiraInvestimentosPage = lazy(() => import("@/pages/CarteiraInvestimentosPage"));
