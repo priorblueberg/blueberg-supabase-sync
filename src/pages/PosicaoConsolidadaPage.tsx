@@ -293,13 +293,21 @@ export default function PosicaoConsolidadaPage() {
 
         const lastRow = engineRows.length > 0 ? engineRows[engineRows.length - 1] : null;
         if (lastRow) {
-          const usePeriodic = product.pagamento && product.pagamento !== "No Vencimento";
-          const rentPct = usePeriodic ? lastRow.rentAcumulada2 : lastRow.rentabilidadeAcumuladaPct;
+          // Use TWR (same logic as carteira RF / Investimentos) para garantir
+          // consistência entre rentabilidade do título e das carteiras.
+          const rfCarteira = calcularCarteiraRendaFixa({
+            productRows: [engineRows],
+            calendario,
+            dataInicio: minDate,
+            dataCalculo: dataReferenciaISO,
+          });
+          const lastCart = rfCarteira.length > 0 ? rfCarteira[rfCarteira.length - 1] : null;
+          const rentTWR = lastCart ? lastCart.rentAcumuladaPct * 100 : 0;
           posicaoRows.push({
             nome: product.nome || product.produto_nome,
             valorAtualizado: isEncerrado ? 0 : lastRow.liquido,
             ganhoFinanceiro: lastRow.ganhoAcumulado,
-            rentabilidade: (rentPct ?? 0) * 100,
+            rentabilidade: rentTWR,
             custodiante: product.instituicao_nome,
             ativo: !isEncerrado,
             product,
