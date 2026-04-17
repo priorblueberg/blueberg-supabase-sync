@@ -323,7 +323,7 @@ export default function CustodiaPage() {
                         variant="outline"
                         size="sm"
                         className="text-xs h-7 px-2"
-                        onClick={() => openBoleta(r, "Aplicação")}
+                        onClick={() => openBoletaForRow(r, "Aplicação")}
                       >
                         Aplicação
                       </Button>
@@ -331,7 +331,7 @@ export default function CustodiaPage() {
                         variant="outline"
                         size="sm"
                         className="text-xs h-7 px-2"
-                        onClick={() => openBoleta(r, "Resgate")}
+                        onClick={() => openBoletaForRow(r, "Resgate")}
                       >
                         Resgate
                       </Button>
@@ -379,18 +379,7 @@ export default function CustodiaPage() {
         </table>
       </div>
 
-      {/* Boleta de Custódia */}
-      {dialogRow && user && (
-        <BoletaCustodiaDialog
-          open={dialogOpen}
-          onClose={() => setDialogOpen(false)}
-          tipo={dialogTipo}
-          row={dialogRow}
-          userId={user.id}
-          dataReferenciaISO={dataReferenciaISO}
-          onSuccess={() => { fetchData(); applyDataReferencia(); }}
-        />
-      )}
+      {/* Boleta global via BoletaModalContext */}
 
       {/* Confirmação de exclusão */}
       <AlertDialog open={!!deleteRow} onOpenChange={(open) => !open && setDeleteRow(null)}>

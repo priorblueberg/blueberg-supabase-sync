@@ -538,6 +538,7 @@ export default function PosicaoConsolidadaPage() {
       id: p.id,
       codigo_custodia: p.codigo_custodia,
       data_inicio: p.data_inicio,
+      tipo_movimentacao: (p as any).tipo_movimentacao ?? "",
       nome: p.nome,
       categoria: p.categoria_nome,
       categoria_id: p.categoria_id,
@@ -553,6 +554,7 @@ export default function PosicaoConsolidadaPage() {
       pagamento: p.pagamento,
       vencimento: p.vencimento,
       preco_unitario: p.preco_unitario,
+      quantidade: (p as any).quantidade ?? null,
       valor_investido: p.valor_investido,
       resgate_total: p.resgate_total,
     };
