@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useBoletaModal } from "@/contexts/BoletaModalContext";
-import type { CustodiaRowForBoleta } from "@/components/BoletaCustodiaDialog";
+import type { CustodiaRowForBoleta } from "@/types/boleta";
 
 interface Categoria { id: string; nome: string; }
 interface Produto { id: string; nome: string; }

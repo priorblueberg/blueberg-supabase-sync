@@ -27,7 +27,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { type CustodiaRowForBoleta } from "@/components/BoletaCustodiaDialog";
+import { type CustodiaRowForBoleta } from "@/types/boleta";
 import { useBoletaModal } from "@/contexts/BoletaModalContext";
 import PosicaoDetalheDialog, { type PosicaoDetalheData } from "@/components/PosicaoDetalheDialog";
 import CarteirasSummaryTable, { type CarteiraSummaryRow } from "@/components/CarteirasSummaryTable";
@@ -538,6 +538,7 @@ export default function PosicaoConsolidadaPage() {
       id: p.id,
       codigo_custodia: p.codigo_custodia,
       data_inicio: p.data_inicio,
+      tipo_movimentacao: (p as any).tipo_movimentacao ?? "",
       nome: p.nome,
       categoria: p.categoria_nome,
       categoria_id: p.categoria_id,
@@ -553,6 +554,7 @@ export default function PosicaoConsolidadaPage() {
       pagamento: p.pagamento,
       vencimento: p.vencimento,
       preco_unitario: p.preco_unitario,
+      quantidade: (p as any).quantidade ?? null,
       valor_investido: p.valor_investido,
       resgate_total: p.resgate_total,
     };
@@ -691,8 +693,8 @@ export default function PosicaoConsolidadaPage() {
                     <TableCell className="text-right font-medium">{pctPortfolio.toFixed(2)}%</TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
-                        <Button variant="outline" size="sm" className="text-xs h-7 px-2" onClick={(e) => openBoleta(row, "Aplicação", e)}>Aplicação</Button>
-                        <Button variant="outline" size="sm" className="text-xs h-7 px-2" onClick={(e) => openBoleta(row, "Resgate", e)}>Resgate</Button>
+                        <Button variant="outline" size="sm" className="text-xs h-7 px-2" onClick={(e) => openBoletaForRow(row, "Aplicação", e)}>Aplicação</Button>
+                        <Button variant="outline" size="sm" className="text-xs h-7 px-2" onClick={(e) => openBoletaForRow(row, "Resgate", e)}>Resgate</Button>
                         <button onClick={(e) => { e.stopPropagation(); setDeleteRow(row); }} className="text-muted-foreground hover:text-destructive transition-colors ml-1" title="Excluir ativo">
                           <Trash2 size={14} />
                         </button>
@@ -716,18 +718,7 @@ export default function PosicaoConsolidadaPage() {
         </div>
       )}
 
-      {/* Boleta */}
-      {dialogRow && user && (
-        <BoletaCustodiaDialog
-          open={dialogOpen}
-          onClose={() => setDialogOpen(false)}
-          tipo={dialogTipo}
-          row={dialogRow}
-          userId={user.id}
-          dataReferenciaISO={dataReferenciaISO}
-          onSuccess={() => { calcVersionRef.current += 1; calculate(calcVersionRef.current); applyDataReferencia(); }}
-        />
-      )}
+      {/* Boleta agora é global via BoletaModalContext */}
 
       {/* Detalhe */}
       {detalheRow && user && (() => {

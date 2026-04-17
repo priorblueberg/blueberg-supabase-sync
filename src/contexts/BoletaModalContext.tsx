@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
-import type { CustodiaRowForBoleta } from "@/components/BoletaCustodiaDialog";
+import type { CustodiaRowForBoleta } from "@/types/boleta";
 
 export type BoletaOrigin = "header" | "posicao" | "edit";
 

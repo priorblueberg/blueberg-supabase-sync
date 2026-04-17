@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { registerCacheReset } from "@/lib/resetCaches";
-import BoletaCustodiaDialog, {
-  type CustodiaRowForBoleta,
-} from "@/components/BoletaCustodiaDialog";
+import { useBoletaModal } from "@/contexts/BoletaModalContext";
+import type { CustodiaRowForBoleta } from "@/types/boleta";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -78,10 +77,7 @@ export default function CustodiaPage() {
   const { appliedVersion, dataReferenciaISO, applyDataReferencia } = useDataReferencia();
   const { user } = useAuth();
 
-  // Dialog state
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogTipo, setDialogTipo] = useState<"Aplicação" | "Resgate">("Aplicação");
-  const [dialogRow, setDialogRow] = useState<CustodiaRowForBoleta | null>(null);
+  const { openBoleta } = useBoletaModal();
   const [deleteRow, setDeleteRow] = useState<CustodiaRow | null>(null);
 
   const fetchData = async () => {
@@ -187,11 +183,12 @@ export default function CustodiaPage() {
     fetchData();
   }, [appliedVersion, user?.id]);
 
-  const openBoleta = (row: CustodiaRow, tipo: "Aplicação" | "Resgate") => {
-    setDialogRow({
+  const openBoletaForRow = (row: CustodiaRow, tipo: "Aplicação" | "Resgate") => {
+    const prefill: CustodiaRowForBoleta = {
       id: row.id,
       codigo_custodia: row.codigo_custodia,
       data_inicio: row.data_inicio,
+      tipo_movimentacao: row.tipo_movimentacao,
       nome: row.nome,
       categoria: row.categoria,
       categoria_id: row.categoria_id,
@@ -207,10 +204,11 @@ export default function CustodiaPage() {
       pagamento: row.pagamento,
       vencimento: row.vencimento,
       preco_unitario: row.preco_unitario,
+      quantidade: row.quantidade,
       valor_investido: row.valor_investido,
-    });
-    setDialogTipo(tipo);
-    setDialogOpen(true);
+      resgate_total: row.resgate_total,
+    };
+    openBoleta({ origin: "posicao", tipo, prefill });
   };
 
   const handleDeleteCustodia = async () => {
@@ -325,7 +323,7 @@ export default function CustodiaPage() {
                         variant="outline"
                         size="sm"
                         className="text-xs h-7 px-2"
-                        onClick={() => openBoleta(r, "Aplicação")}
+                        onClick={() => openBoletaForRow(r, "Aplicação")}
                       >
                         Aplicação
                       </Button>
@@ -333,7 +331,7 @@ export default function CustodiaPage() {
                         variant="outline"
                         size="sm"
                         className="text-xs h-7 px-2"
-                        onClick={() => openBoleta(r, "Resgate")}
+                        onClick={() => openBoletaForRow(r, "Resgate")}
                       >
                         Resgate
                       </Button>
@@ -381,18 +379,7 @@ export default function CustodiaPage() {
         </table>
       </div>
 
-      {/* Boleta de Custódia */}
-      {dialogRow && user && (
-        <BoletaCustodiaDialog
-          open={dialogOpen}
-          onClose={() => setDialogOpen(false)}
-          tipo={dialogTipo}
-          row={dialogRow}
-          userId={user.id}
-          dataReferenciaISO={dataReferenciaISO}
-          onSuccess={() => { fetchData(); applyDataReferencia(); }}
-        />
-      )}
+      {/* Boleta global via BoletaModalContext */}
 
       {/* Confirmação de exclusão */}
       <AlertDialog open={!!deleteRow} onOpenChange={(open) => !open && setDeleteRow(null)}>
