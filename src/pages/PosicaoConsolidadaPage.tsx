@@ -27,7 +27,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { type CustodiaRowForBoleta } from "@/components/BoletaCustodiaDialog";
+import { type CustodiaRowForBoleta } from "@/types/boleta";
 import { useBoletaModal } from "@/contexts/BoletaModalContext";
 import PosicaoDetalheDialog, { type PosicaoDetalheData } from "@/components/PosicaoDetalheDialog";
 import CarteirasSummaryTable, { type CarteiraSummaryRow } from "@/components/CarteirasSummaryTable";
