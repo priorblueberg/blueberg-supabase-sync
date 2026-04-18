@@ -96,7 +96,7 @@ export default function ControleCarteirasPage() {
                   <td className="px-4 py-2 text-foreground">{fmtDate(r.resgate_total)}</td>
                   <td className="px-4 py-2 text-foreground">{fmtDate(r.data_calculo)}</td>
                   <td className="px-4 py-2">
-                    <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${r.status === "Ativa" ? "bg-[hsl(145,63%,32%)]/15 text-[hsl(145,63%,32%)]" : "bg-destructive/15 text-destructive"}`}>
+                    <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${r.status === "Ativa" ? "bg-[hsl(145,63%,32%)]/15 text-[hsl(145,63%,32%)]" : "bg-muted text-muted-foreground"}`}>
                       {r.status}
                     </span>
                   </td>

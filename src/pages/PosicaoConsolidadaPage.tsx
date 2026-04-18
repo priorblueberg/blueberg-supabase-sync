@@ -75,11 +75,12 @@ let _cachedRows: PosicaoRow[] = [];
 let _cachedRentabilidade = 0;
 let _cachedCarteiraSummary: CarteiraSummaryRow[] = [];
 let _cachedPeriodoInicio: string | null = null;
+let _cachedPeriodoFim: string | null = null;
 let _cachedPoupancaEngineRows = new Map<number, DailyRow[]>();
 let _cachedRFEngineRows = new Map<number, DailyRow[]>();
 
 import { registerCacheReset } from "@/lib/resetCaches";
-registerCacheReset(() => { _cachedVersion = null; _cachedRows = []; _cachedRentabilidade = 0; _cachedCarteiraSummary = []; _cachedPeriodoInicio = null; _cachedPoupancaEngineRows = new Map(); _cachedRFEngineRows = new Map(); });
+registerCacheReset(() => { _cachedVersion = null; _cachedRows = []; _cachedRentabilidade = 0; _cachedCarteiraSummary = []; _cachedPeriodoInicio = null; _cachedPeriodoFim = null; _cachedPoupancaEngineRows = new Map(); _cachedRFEngineRows = new Map(); });
 
 export default function PosicaoConsolidadaPage() {
   const { user } = useAuth();
@@ -88,6 +89,7 @@ export default function PosicaoConsolidadaPage() {
   const [carteiraRentabilidade, setCarteiraRentabilidade] = useState(_cachedRentabilidade);
   const [carteiraSummary, setCarteiraSummary] = useState<CarteiraSummaryRow[]>(_cachedCarteiraSummary);
   const [periodoInicio, setPeriodoInicio] = useState<string | null>(_cachedPeriodoInicio);
+  const [periodoFim, setPeriodoFim] = useState<string | null>(_cachedPeriodoFim);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [rentSort, setRentSort] = useState<"none" | "asc" | "desc">("none");
@@ -125,11 +127,17 @@ export default function PosicaoConsolidadaPage() {
       ]);
       console.log(`[PERF][PosConsolidada]   fetch custodia: ${(performance.now()-tFetch).toFixed(0)}ms (${products?.length || 0} rows)`);
 
-      // Extract periodo inicio from carteira Investimentos
+      // Extract periodo inicio/fim from carteira Investimentos
       const invCart = (carteirasData || []).find((c: any) => c.nome_carteira === "Investimentos");
       const pInicio = invCart?.data_inicio || null;
+      // periodo fim = min(dataReferencia, resgate_total da carteira Investimentos)
+      const pFim = invCart?.resgate_total && dataReferenciaISO > invCart.resgate_total
+        ? invCart.resgate_total
+        : dataReferenciaISO;
       setPeriodoInicio(pInicio);
+      setPeriodoFim(pFim);
       _cachedPeriodoInicio = pInicio;
+      _cachedPeriodoFim = pFim;
 
       if (!products || products.length === 0) { setRows([]); _cachedRows = []; setCarteiraSummary([]); _cachedCarteiraSummary = []; _cachedVersion = appliedVersion; setLoading(false); return; }
 
@@ -613,7 +621,7 @@ export default function PosicaoConsolidadaPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Posição Consolidada</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Período de Análise: De {fmtDateLabel(periodoInicio)} a {fmtDateLabel(dataReferenciaISO)}
+          Período de Análise: De {fmtDateLabel(periodoInicio)} a {fmtDateLabel(periodoFim ?? dataReferenciaISO)}
         </p>
       </div>
 

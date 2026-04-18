@@ -48,9 +48,7 @@ export default function CarteirasSummaryTable({ rows, hideCarteiras }: Props) {
                   className={
                     row.status === "Ativa"
                       ? "bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] px-2 py-0.5"
-                      : row.status === "Encerrada"
-                        ? "bg-destructive/15 text-destructive text-[10px] px-2 py-0.5"
-                        : "bg-muted text-muted-foreground text-[10px] px-2 py-0.5"
+                      : "bg-muted text-muted-foreground text-[10px] px-2 py-0.5"
                   }
                 >
                   {row.status}

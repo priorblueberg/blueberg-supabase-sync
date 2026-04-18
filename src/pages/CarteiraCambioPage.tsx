@@ -192,7 +192,10 @@ export default function CarteiraCambioPage() {
         // REGRA GLOBAL: ativo só aparece se data_inicio <= dataRef
         const produtosValidos = mapped.filter(p => dataReferenciaISO >= p.data_inicio);
 
-        const effectiveDataCalculo = dataReferenciaISO;
+        // Effective data_calculo = min(dataReferencia, resgate_total)
+        const effectiveDataCalculo = cartData?.resgate_total && dataReferenciaISO > cartData.resgate_total
+          ? cartData.resgate_total
+          : dataReferenciaISO;
 
         const info: CarteiraInfo = cartData ? {
           nome_carteira: cartData.nome_carteira,
@@ -428,7 +431,7 @@ export default function CarteiraCambioPage() {
     carteiraInfo.status === "Ativa" ? (
       <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">Ativa</Badge>
     ) : carteiraInfo.status === "Encerrada" ? (
-      <Badge variant="destructive">Encerrada</Badge>
+      <Badge className="bg-muted text-muted-foreground hover:bg-muted">Encerrada</Badge>
     ) : (
       <Badge variant="secondary">Não Iniciada</Badge>
     )

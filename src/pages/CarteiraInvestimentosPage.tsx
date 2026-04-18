@@ -143,6 +143,7 @@ export default function CarteiraInvestimentosPage() {
 
         const rfCart = (carteirasData || []).find((c: any) => c.nome_carteira === "Renda Fixa");
         const cambioCart = (carteirasData || []).find((c: any) => c.nome_carteira === "Câmbio");
+        const invCart = (carteirasData || []).find((c: any) => c.nome_carteira === "Investimentos");
 
         // Determine global date range
         const allDates: string[] = [];
@@ -161,7 +162,10 @@ export default function CarteiraInvestimentosPage() {
         }
 
         const globalDataInicio = allDates.sort()[0];
-        const globalDataCalculo = dataReferenciaISO;
+        // data_calculo = min(dataReferencia, resgate_total da carteira Investimentos)
+        const globalDataCalculo = invCart?.resgate_total && dataReferenciaISO > invCart.resgate_total
+          ? invCart.resgate_total
+          : dataReferenciaISO;
         setDataInicio(globalDataInicio);
         setDataCalculo(globalDataCalculo);
 
