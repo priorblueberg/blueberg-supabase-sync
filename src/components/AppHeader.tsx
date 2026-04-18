@@ -233,10 +233,6 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
             </button>
           )}
 
-          <button className="relative text-muted-foreground hover:text-primary" style={{ transition: "color 120ms linear" }}>
-            <Bell size={18} strokeWidth={1.5} />
-            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
-          </button>
         </div>
       </header>
 
