@@ -191,7 +191,7 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
     <>
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
         <DialogContent className="max-w-4xl w-[95vw] h-[85vh] p-0 flex flex-col overflow-hidden">
-          <DialogHeader className="pr-8 px-6 pt-6 shrink-0">
+          <DialogHeader className="pr-12 px-6 pt-10 shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <DialogTitle className="text-lg font-bold">{data.nome}</DialogTitle>
@@ -211,15 +211,9 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                 <TabsTrigger value="historico">Histórico</TabsTrigger>
                 <TabsTrigger value="dados">Dados</TabsTrigger>
               </TabsList>
-              {!isPoupanca && prefill && (
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => handleAplicacaoResgate("Aplicação")}>Aplicação</Button>
-                  <Button variant="outline" size="sm" onClick={() => handleAplicacaoResgate("Resgate")}>Resgate</Button>
-                </div>
-              )}
             </div>
 
-            <TabsContent value="historico" className="flex-1 min-h-0 mt-3 overflow-hidden">
+            <TabsContent value="historico" className="flex-1 min-h-0 mt-3 mb-4 overflow-hidden">
               {loading ? (
                 <p className="text-sm text-muted-foreground py-4">Carregando...</p>
               ) : movs.length === 0 ? (
@@ -232,8 +226,6 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                         <TableHead className="w-[100px]">Data</TableHead>
                         <TableHead className="w-[160px]">Tipo</TableHead>
                         <TableHead className="w-[130px]">Valor</TableHead>
-                        {!isPoupanca && <TableHead className="w-[100px]">Quantidade</TableHead>}
-                        {!isPoupanca && <TableHead className="w-[120px]">Preço Unit.</TableHead>}
                         <TableHead className="w-[80px]">Origem</TableHead>
                         {!isPoupanca && <TableHead className="w-[80px] text-right">Ações</TableHead>}
                         {isPoupanca && <TableHead className="w-[130px] text-right">Saldo</TableHead>}
@@ -253,8 +245,6 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                             <TableCell className="whitespace-nowrap">{fmtDate(m.data)}</TableCell>
                             <TableCell className="whitespace-nowrap">{displayTipo}</TableCell>
                             <TableCell className="whitespace-nowrap">{fmtBrl(displayValor)}</TableCell>
-                            {!isPoupanca && <TableCell className="whitespace-nowrap">{fmtQty(m.quantidade)}</TableCell>}
-                            {!isPoupanca && <TableCell className="whitespace-nowrap">{m.preco_unitario != null ? (isMoedasCategoria(data.nome) ? fmtBrl4(m.preco_unitario) : fmtBrl(m.preco_unitario)) : "—"}</TableCell>}
                             <TableCell>
                               {isAuto ? "Auto" : "Manual"}
                             </TableCell>
@@ -291,6 +281,12 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                 </div>
               )}
             </TabsContent>
+            {!isPoupanca && prefill && (
+              <div className="flex justify-end gap-2 shrink-0 mt-3">
+                <Button variant="outline" size="sm" onClick={() => handleAplicacaoResgate("Aplicação")}>Aplicação</Button>
+                <Button variant="outline" size="sm" onClick={() => handleAplicacaoResgate("Resgate")}>Resgate</Button>
+              </div>
+            )}
 
             <TabsContent value="dados" className="flex-1 min-h-0 mt-3 overflow-auto">
               {isPoupanca ? (
