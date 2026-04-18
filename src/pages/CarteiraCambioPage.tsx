@@ -428,7 +428,7 @@ export default function CarteiraCambioPage() {
     carteiraInfo.status === "Ativa" ? (
       <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">Ativa</Badge>
     ) : carteiraInfo.status === "Encerrada" ? (
-      <Badge variant="destructive">Encerrada</Badge>
+      <Badge className="bg-muted text-muted-foreground hover:bg-muted">Encerrada</Badge>
     ) : (
       <Badge variant="secondary">Não Iniciada</Badge>
     )
