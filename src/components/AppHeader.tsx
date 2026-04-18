@@ -34,7 +34,7 @@ function clampDate(date: Date, minDate: Date | null): Date {
 }
 
 export function AppHeader({ disableControls = false }: { disableControls?: boolean }) {
-  const { dataReferencia, setDataReferencia, applyDataReferencia, setIsRecalculating } = useDataReferencia();
+  const { dataReferencia, setDataReferencia, dataReferenciaISO, applyDataReferencia, setIsRecalculating } = useDataReferencia();
   const [inputValue, setInputValue] = useState(format(dataReferencia, "dd/MM/yyyy"));
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [isForceRecalculating, setIsForceRecalculating] = useState(false);
