@@ -192,7 +192,10 @@ export default function CarteiraCambioPage() {
         // REGRA GLOBAL: ativo só aparece se data_inicio <= dataRef
         const produtosValidos = mapped.filter(p => dataReferenciaISO >= p.data_inicio);
 
-        const effectiveDataCalculo = dataReferenciaISO;
+        // Effective data_calculo = min(dataReferencia, resgate_total)
+        const effectiveDataCalculo = cartData?.resgate_total && dataReferenciaISO > cartData.resgate_total
+          ? cartData.resgate_total
+          : dataReferenciaISO;
 
         const info: CarteiraInfo = cartData ? {
           nome_carteira: cartData.nome_carteira,

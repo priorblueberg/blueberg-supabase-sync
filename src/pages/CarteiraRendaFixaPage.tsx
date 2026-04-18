@@ -184,9 +184,11 @@ export default function CarteiraRendaFixaPage() {
           emissor_nome: r.emissores?.nome || "—",
         }));
 
-      // Use dataReferenciaISO from context as the effective data_calculo
-      // (DB field is no longer updated on date change — only on structural sync)
-      const effectiveDataCalculo = dataReferenciaISO;
+      // Effective data_calculo = min(dataReferencia, resgate_total)
+      // If user picks a date after the carteira closed, cap to resgate_total.
+      const effectiveDataCalculo = cartData?.resgate_total && dataReferenciaISO > cartData.resgate_total
+        ? cartData.resgate_total
+        : dataReferenciaISO;
 
       if (rfProducts.length === 0 || !cartData || !cartData.data_inicio || cartData.status === "Não Iniciada") {
         setCarteiraInfo(cartData ? {
