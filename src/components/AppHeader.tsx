@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { AiChatDialog } from "@/components/AiChatDialog";
 import { format, parse, isValid, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -12,6 +12,7 @@ import { useBoletaModal } from "@/contexts/BoletaModalContext";
 import { recalculateAllForDataReferencia } from "@/lib/syncEngine";
 import { invalidateAllCaches } from "@/lib/dataCache";
 import { invalidateEngineCache } from "@/lib/engineCache";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -36,12 +37,29 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
   const [isForceRecalculating, setIsForceRecalculating] = useState(false);
   // Staged date: what the user picked but hasn't applied yet
   const [stagedDate, setStagedDate] = useState<Date>(dataReferencia);
+  const [minDate, setMinDate] = useState<Date | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
   const { openBoleta } = useBoletaModal();
+
+  // Fetch data_inicio of carteira Investimentos to use as min date
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("controle_de_carteiras")
+      .select("data_inicio")
+      .eq("user_id", user.id)
+      .eq("nome_carteira", "Investimentos")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.data_inicio) {
+          setMinDate(new Date(data.data_inicio + "T00:00:00"));
+        }
+      });
+  }, [user]);
 
   const isStagedSameAsApplied = format(stagedDate, "yyyy-MM-dd") === format(dataReferencia, "yyyy-MM-dd");
 
