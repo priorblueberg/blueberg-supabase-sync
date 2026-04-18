@@ -7,6 +7,7 @@ import { CarteiraRFRow } from "@/lib/carteiraRendaFixaEngine";
 import { buildCdiSeries, CdiRecord } from "@/lib/cdiCalculations";
 import { buildDetailRowsFromEngine } from "@/lib/detailRowsBuilder";
 import RentabilidadeDetailTable from "@/components/RentabilidadeDetailTable";
+import { filtrarProdutosPorDataReferencia } from "@/lib/posicaoConsolidadaFilter";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { ArrowLeft } from "lucide-react";
@@ -189,8 +190,8 @@ export default function CarteiraCambioPage() {
           vencimento: r.vencimento,
         }));
 
-        // REGRA GLOBAL: ativo só aparece se data_inicio <= dataRef
-        const produtosValidos = mapped.filter(p => dataReferenciaISO >= p.data_inicio);
+        // Plugin global: filtra títulos não iniciados (mesma regra da Posição Consolidada)
+        const produtosValidos = filtrarProdutosPorDataReferencia(mapped, dataReferenciaISO);
 
         // Effective data_calculo = min(dataReferencia, resgate_total)
         const effectiveDataCalculo = cartData?.resgate_total && dataReferenciaISO > cartData.resgate_total
