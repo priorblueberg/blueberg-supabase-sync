@@ -41,6 +41,7 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
   // Staged date: what the user picked but hasn't applied yet
   const [stagedDate, setStagedDate] = useState<Date>(dataReferencia);
   const [minDate, setMinDate] = useState<Date | null>(null);
+  const [investimentosDataCalculo, setInvestimentosDataCalculo] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const { user, signOut } = useAuth();
@@ -53,7 +54,7 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
     if (!user) return;
     supabase
       .from("controle_de_carteiras")
-      .select("data_inicio")
+      .select("data_inicio, data_calculo")
       .eq("user_id", user.id)
       .eq("nome_carteira", "Investimentos")
       .maybeSingle()
@@ -61,6 +62,7 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
         if (data?.data_inicio) {
           setMinDate(new Date(data.data_inicio + "T00:00:00"));
         }
+        setInvestimentosDataCalculo(data?.data_calculo ?? null);
       });
   }, [user]);
 
