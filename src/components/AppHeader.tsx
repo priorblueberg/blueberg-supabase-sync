@@ -25,9 +25,11 @@ function getMaxDate() {
   return subDays(startOfDay(new Date()), 1);
 }
 
-function clampDate(date: Date): Date {
+function clampDate(date: Date, minDate: Date | null): Date {
   const max = getMaxDate();
-  return date > max ? max : date;
+  let result = date > max ? max : date;
+  if (minDate && result < minDate) result = minDate;
+  return result;
 }
 
 export function AppHeader({ disableControls = false }: { disableControls?: boolean }) {
@@ -86,7 +88,7 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
     if (!user || isStagedSameAsApplied) return;
     const t0 = performance.now();
     console.log("[PERF][Header] ▶ handleApply START (local-only)");
-    const clamped = clampDate(stagedDate);
+    const clamped = clampDate(stagedDate, minDate);
     setDataReferencia(clamped);
     setStagedDate(clamped);
     setInputValue(format(clamped, "dd/MM/yyyy"));
@@ -98,7 +100,10 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
   };
 
   const stageDate = (date: Date) => {
-    const clamped = clampDate(date);
+    const clamped = clampDate(date, minDate);
+    if (minDate && date < minDate) {
+      toast.error(`Data anterior ao início dos seus investimentos (${format(minDate, "dd/MM/yyyy")})`);
+    }
     setStagedDate(clamped);
     setInputValue(format(clamped, "dd/MM/yyyy"));
   };
@@ -239,7 +244,7 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
             selected={dataReferencia}
             onSelect={handleDateSelect}
             locale={ptBR}
-            disabled={{ after: maxDate }}
+            disabled={minDate ? { after: maxDate, before: minDate } : { after: maxDate }}
             className="pointer-events-auto"
           />
         </div>
