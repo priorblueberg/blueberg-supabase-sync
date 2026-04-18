@@ -611,14 +611,8 @@ export default function CarteiraRendaFixaPage() {
   const fmtBrl = (v: number | null) =>
     v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
 
-  const statusBadge = carteiraInfo ? (
-    carteiraInfo.status === "Ativa" ? (
-      <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">Ativa</Badge>
-    ) : carteiraInfo.status === "Encerrada" ? (
-      <Badge className="bg-muted text-muted-foreground hover:bg-muted">Encerrada</Badge>
-    ) : (
-      <Badge variant="secondary">Não Iniciada</Badge>
-    )
+  const statusBadge = carteiraInfo && carteiraInfo.resgate_total && carteiraInfo.data_calculo && carteiraInfo.data_calculo >= carteiraInfo.resgate_total ? (
+    <Badge className="bg-muted text-muted-foreground hover:bg-muted">Encerrada</Badge>
   ) : null;
 
   if (selectedProduct) {

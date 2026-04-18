@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { AiChatDialog } from "@/components/AiChatDialog";
 import { format, parse, isValid, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bell, CalendarIcon, ChevronDown, RefreshCw, Plus, MessageCircle } from "lucide-react";
+import { CalendarIcon, ChevronDown, RefreshCw, Plus, MessageCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -33,13 +34,14 @@ function clampDate(date: Date, minDate: Date | null): Date {
 }
 
 export function AppHeader({ disableControls = false }: { disableControls?: boolean }) {
-  const { dataReferencia, setDataReferencia, applyDataReferencia, setIsRecalculating } = useDataReferencia();
+  const { dataReferencia, setDataReferencia, dataReferenciaISO, applyDataReferencia, setIsRecalculating } = useDataReferencia();
   const [inputValue, setInputValue] = useState(format(dataReferencia, "dd/MM/yyyy"));
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [isForceRecalculating, setIsForceRecalculating] = useState(false);
   // Staged date: what the user picked but hasn't applied yet
   const [stagedDate, setStagedDate] = useState<Date>(dataReferencia);
   const [minDate, setMinDate] = useState<Date | null>(null);
+  const [investimentosDataCalculo, setInvestimentosDataCalculo] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const { user, signOut } = useAuth();
@@ -52,7 +54,7 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
     if (!user) return;
     supabase
       .from("controle_de_carteiras")
-      .select("data_inicio")
+      .select("data_inicio, data_calculo")
       .eq("user_id", user.id)
       .eq("nome_carteira", "Investimentos")
       .maybeSingle()
@@ -60,6 +62,7 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
         if (data?.data_inicio) {
           setMinDate(new Date(data.data_inicio + "T00:00:00"));
         }
+        setInvestimentosDataCalculo(data?.data_calculo ?? null);
       });
   }, [user]);
 
@@ -215,6 +218,17 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
             >
               Aplicar
             </button>
+            {investimentosDataCalculo && (
+              dataReferenciaISO < investimentosDataCalculo ? (
+                <Badge className="bg-destructive hover:bg-destructive text-destructive-foreground text-[10px] px-2 py-0.5">
+                  Visão Retroativa
+                </Badge>
+              ) : (
+                <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] px-2 py-0.5">
+                  Último Fechamento
+                </Badge>
+              )
+            )}
           </div>
 
           {isAdmin && (
@@ -230,10 +244,6 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
             </button>
           )}
 
-          <button className="relative text-muted-foreground hover:text-primary" style={{ transition: "color 120ms linear" }}>
-            <Bell size={18} strokeWidth={1.5} />
-            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary" />
-          </button>
         </div>
       </header>
 
