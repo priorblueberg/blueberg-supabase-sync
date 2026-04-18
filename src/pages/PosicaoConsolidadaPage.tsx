@@ -31,6 +31,7 @@ import { type CustodiaRowForBoleta } from "@/types/boleta";
 import { useBoletaModal } from "@/contexts/BoletaModalContext";
 import PosicaoDetalheDialog, { type PosicaoDetalheData } from "@/components/PosicaoDetalheDialog";
 import CarteirasSummaryTable, { type CarteiraSummaryRow } from "@/components/CarteirasSummaryTable";
+import { filtrarProdutosPorDataReferencia } from "@/lib/posicaoConsolidadaFilter";
 
 interface CustodiaProduct {
   id: string;
@@ -168,8 +169,8 @@ export default function PosicaoConsolidadaPage() {
         quantidade: r.quantidade != null ? Number(r.quantidade) : null,
       }));
 
-      // REGRA GLOBAL: ativo só aparece se data_inicio <= dataRef (liquidados continuam visíveis)
-      const produtosValidos = mapped.filter(p => dataReferenciaISO >= p.data_inicio);
+      // Plugin global: ativo só aparece se data_inicio <= dataRef (liquidados continuam visíveis)
+      const produtosValidos = filtrarProdutosPorDataReferencia(mapped, dataReferenciaISO);
 
       const rfProducts = produtosValidos.filter((p) => p.categoria_nome === "Renda Fixa" && p.modalidade !== "Poupança");
       const poupancaProducts = produtosValidos.filter((p) => p.modalidade === "Poupança");

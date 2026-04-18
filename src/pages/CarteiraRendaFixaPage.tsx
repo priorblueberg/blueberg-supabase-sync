@@ -13,6 +13,7 @@ import {
   cacheRFResult, getCachedRFResult, buildMovsHash,
 } from "@/lib/engineCache";
 import { ProductDetail, type CustodiaProduct as AnalysisCustodiaProduct } from "@/pages/AnaliseIndividualPage";
+import { filtrarProdutosPorDataReferencia } from "@/lib/posicaoConsolidadaFilter";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { CircleCheck, CircleX } from "lucide-react";
@@ -160,7 +161,7 @@ export default function CarteiraRendaFixaPage() {
           custodia_no_dia: r.custodia_no_dia != null ? Number(r.custodia_no_dia) : null,
         }))
       );
-      const rfProducts: CustodiaProduct[] = (custodiaData || [])
+      const rfProductsAll: CustodiaProduct[] = (custodiaData || [])
         .filter((r: any) => r.categorias?.nome === "Renda Fixa")
         .map((r: any) => ({
           id: r.id,
@@ -183,6 +184,9 @@ export default function CarteiraRendaFixaPage() {
           estrategia: r.estrategia || null,
           emissor_nome: r.emissores?.nome || "—",
         }));
+
+      // Plugin: filtra títulos não iniciados (mesma regra da Posição Consolidada)
+      const rfProducts = filtrarProdutosPorDataReferencia(rfProductsAll, dataReferenciaISO);
 
       // Effective data_calculo = min(dataReferencia, resgate_total)
       // If user picks a date after the carteira closed, cap to resgate_total.
