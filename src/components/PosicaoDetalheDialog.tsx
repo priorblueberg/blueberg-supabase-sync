@@ -226,8 +226,6 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                         <TableHead className="w-[100px]">Data</TableHead>
                         <TableHead className="w-[160px]">Tipo</TableHead>
                         <TableHead className="w-[130px]">Valor</TableHead>
-                        {!isPoupanca && <TableHead className="w-[100px]">Quantidade</TableHead>}
-                        {!isPoupanca && <TableHead className="w-[120px]">Preço Unit.</TableHead>}
                         <TableHead className="w-[80px]">Origem</TableHead>
                         {!isPoupanca && <TableHead className="w-[80px] text-right">Ações</TableHead>}
                         {isPoupanca && <TableHead className="w-[130px] text-right">Saldo</TableHead>}
@@ -247,8 +245,6 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                             <TableCell className="whitespace-nowrap">{fmtDate(m.data)}</TableCell>
                             <TableCell className="whitespace-nowrap">{displayTipo}</TableCell>
                             <TableCell className="whitespace-nowrap">{fmtBrl(displayValor)}</TableCell>
-                            {!isPoupanca && <TableCell className="whitespace-nowrap">{fmtQty(m.quantidade)}</TableCell>}
-                            {!isPoupanca && <TableCell className="whitespace-nowrap">{m.preco_unitario != null ? (isMoedasCategoria(data.nome) ? fmtBrl4(m.preco_unitario) : fmtBrl(m.preco_unitario)) : "—"}</TableCell>}
                             <TableCell>
                               {isAuto ? "Auto" : "Manual"}
                             </TableCell>
@@ -285,6 +281,12 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                 </div>
               )}
             </TabsContent>
+            {!isPoupanca && prefill && (
+              <div className="flex justify-end gap-2 shrink-0 mt-3">
+                <Button variant="outline" size="sm" onClick={() => handleAplicacaoResgate("Aplicação")}>Aplicação</Button>
+                <Button variant="outline" size="sm" onClick={() => handleAplicacaoResgate("Resgate")}>Resgate</Button>
+              </div>
+            )}
 
             <TabsContent value="dados" className="flex-1 min-h-0 mt-3 overflow-auto">
               {isPoupanca ? (
