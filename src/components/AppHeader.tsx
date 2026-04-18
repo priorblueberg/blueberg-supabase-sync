@@ -218,6 +218,17 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
             >
               Aplicar
             </button>
+            {investimentosDataCalculo && (
+              dataReferenciaISO < investimentosDataCalculo ? (
+                <Badge className="bg-destructive hover:bg-destructive text-destructive-foreground text-[10px] px-2 py-0.5">
+                  Visão Retroativa
+                </Badge>
+              ) : (
+                <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] px-2 py-0.5">
+                  Último Fechamento
+                </Badge>
+              )
+            )}
           </div>
 
           {isAdmin && (
