@@ -616,7 +616,12 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
         onClose();
       } else {
         let codigoCustodia: number; let tipoFinal = tipoMovimentacao;
-        if (nomeAtivo) {
+        // When opened from an existing position (origin === 'posicao'), always reuse the
+        // prefill's codigo_custodia and treat as additional "Aplicação"/"Resgate" — never
+        // create a new "Aplicação Inicial" even if the rebuilt nome_ativo differs slightly.
+        if (isFromPosicao && prefill?.codigo_custodia) {
+          codigoCustodia = prefill.codigo_custodia;
+        } else if (nomeAtivo) {
           const { data: existing } = await supabase.from("movimentacoes").select("codigo_custodia").eq("nome_ativo", nomeAtivo).not("codigo_custodia", "is", null).limit(1);
           if (existing && existing.length > 0) { codigoCustodia = existing[0].codigo_custodia!; }
           else {
