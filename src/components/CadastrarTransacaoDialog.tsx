@@ -561,6 +561,12 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
     if (emptyFields.length > 0) { setValidationErrors(new Set(emptyFields)); toast.error("Preencha todos os campos obrigatórios."); return; }
     setValidationErrors(new Set());
 
+    if (isFromPosicao && prefill?.data_inicio && data && data < prefill.data_inicio) {
+      setDataAnteriorInicialError("Data anterior a Aplicação Inicial");
+      toast.error("Data anterior a Aplicação Inicial");
+      return;
+    }
+
     if (!isPoupanca && !(isMoedas && isMoeda)) {
       const { data: diaUtil } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", data).single();
       if (!diaUtil) { toast.error("A data informada não foi encontrada no calendário. Verifique se é um dia útil válido."); return; }
