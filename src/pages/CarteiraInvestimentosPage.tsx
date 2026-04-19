@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import CarteirasSummaryTable, { type CarteiraSummaryRow } from "@/components/CarteirasSummaryTable";
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
 
@@ -532,22 +532,16 @@ export default function CarteiraInvestimentosPage() {
     return Array.from(map.values()).sort((a: any, b: any) => a.data.localeCompare(b.data));
   }, [consolidatedRows, cdiRecords, ibovespaData, dataInicio, dataCalculo]);
 
-  // Monthly patrimonio data for bar chart
+  // Monthly patrimonio data for area chart (full history since carteira start)
   const monthlyBarData = useMemo(() => {
     if (consolidatedRows.length === 0) return [];
     const MONTH_LABELS = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
     const monthMap = new Map<string, number>();
 
-    // Compute 12-month cutoff
-    const refDate = new Date(dataReferenciaISO + "T00:00:00");
-    refDate.setMonth(refDate.getMonth() - 11);
-    const cutoffKey = `${refDate.getFullYear()}-${String(refDate.getMonth()).padStart(2, "0")}`;
-
     for (const row of consolidatedRows) {
       if (row.patrimonio <= 0) continue;
       const dt = new Date(row.data + "T00:00:00");
       const key = `${dt.getFullYear()}-${String(dt.getMonth()).padStart(2, "0")}`;
-      if (key < cutoffKey) continue;
       monthMap.set(key, row.patrimonio);
     }
 
@@ -557,7 +551,7 @@ export default function CarteiraInvestimentosPage() {
         const [y, m] = key.split("-");
         return { mes: `${MONTH_LABELS[parseInt(m)]}/${y.slice(2)}`, patrimonio };
       });
-  }, [consolidatedRows, dataReferenciaISO]);
+  }, [consolidatedRows]);
 
   // Detail rows for RentabilidadeDetailTable
   const detailRows = useMemo(() => {
@@ -706,17 +700,23 @@ export default function CarteiraInvestimentosPage() {
 
             {/* Patrimônio Mensal */}
             <div className="rounded-md border border-border bg-card p-6">
-              <h2 className="text-sm font-semibold text-foreground">Patrimônio - Últimos 12 meses</h2>
-              <p className="mt-1 text-xs text-muted-foreground">Evolução do patrimônio mensal (R$)</p>
+              <h2 className="text-sm font-semibold text-foreground">Evolução do Patrimônio</h2>
+              <p className="mt-1 text-xs text-muted-foreground">Evolução do patrimônio mensal desde o início da carteira (R$)</p>
               <div className="mt-4 h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyBarData}>
+                  <AreaChart data={monthlyBarData}>
+                    <defs>
+                      <pattern id="patrimonioHatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+                        <rect width="6" height="6" fill="hsl(210, 100%, 45%)" fillOpacity="0.12" />
+                        <line x1="0" y1="0" x2="0" y2="6" stroke="hsl(210, 100%, 45%)" strokeWidth="1.2" strokeOpacity="0.55" />
+                      </pattern>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="mes" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} tickFormatter={(v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })} />
                     <Tooltip formatter={(value: number) => [value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), "Patrimônio"]} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }} />
-                    <Bar dataKey="patrimonio" name="Patrimônio" fill="hsl(210, 100%, 45%)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                    <Area type="monotone" dataKey="patrimonio" name="Patrimônio" stroke="hsl(210, 100%, 45%)" strokeWidth={2} fill="url(#patrimonioHatch)" activeDot={{ r: 4, strokeWidth: 0 }} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
