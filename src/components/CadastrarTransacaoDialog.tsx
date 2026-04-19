@@ -757,9 +757,11 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
                   <div className="grid grid-cols-4 gap-4">
                     <Field label="Data de Transação" required>
                       <input type="date" value={data}
-                        onChange={(e) => { setData(e.target.value); setDataNaoUtilError(null); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
+                        min={isFromPosicao ? prefill?.data_inicio || undefined : undefined}
+                        onChange={(e) => { setData(e.target.value); setDataNaoUtilError(null); setDataAnteriorInicialError(null); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
                         onBlur={handleDataTransacaoBlur}
-                        className={`input-field ${dataNaoUtilError || validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`} />
+                        className={`input-field ${dataNaoUtilError || dataAnteriorInicialError || validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`} />
+                      {dataAnteriorInicialError && <p className="text-xs text-destructive mt-1">{dataAnteriorInicialError}</p>}
                       {dataNaoUtilError && <p className="text-xs text-destructive mt-1">{dataNaoUtilError}</p>}
                     </Field>
                     <Field label="Valor Inicial" required>
