@@ -163,6 +163,7 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
   const [vencimentoRemanejado, setVencimentoRemanejado] = useState(false);
   const [dataNaoUtilError, setDataNaoUtilError] = useState<string | null>(null);
+  const [dataAnteriorInicialError, setDataAnteriorInicialError] = useState<string | null>(null);
 
   const categoriaSelecionada = categorias.find((c) => c.id === categoriaId);
   const produtoSelecionado = produtos.find((p) => p.id === produtoId);
