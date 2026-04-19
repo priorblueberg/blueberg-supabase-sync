@@ -205,6 +205,7 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
       setResgateCotacaoRef(null); setResgateCotacaoNeg(""); setValorEmEspecie(false);
       setEditLoaded(false); setValidationErrors(new Set());
       setVencimentoRemanejado(false); setDataNaoUtilError(null);
+      setDataAnteriorInicialError(null);
     }
   }, [open]);
 
