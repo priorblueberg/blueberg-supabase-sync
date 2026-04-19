@@ -220,7 +220,19 @@ export function AppHeader({ disableControls = false }: { disableControls?: boole
             </button>
             {investimentosDataCalculo && (
               dataReferenciaISO < investimentosDataCalculo ? (
-                <Badge className="bg-destructive hover:bg-destructive text-destructive-foreground text-[10px] px-2 py-0.5">
+                <Badge
+                  onClick={() => {
+                    const d1 = getMaxDate();
+                    const clamped = clampDate(d1, minDate);
+                    setDataReferencia(clamped);
+                    setStagedDate(clamped);
+                    setInputValue(format(clamped, "dd/MM/yyyy"));
+                    applyDataReferencia();
+                    toast.success("Data de referência ajustada para D-1");
+                  }}
+                  className="bg-destructive hover:bg-destructive/80 text-destructive-foreground text-[10px] px-2 py-0.5 cursor-pointer"
+                  title="Clique para voltar para D-1"
+                >
                   Visão Retroativa
                 </Badge>
               ) : (
