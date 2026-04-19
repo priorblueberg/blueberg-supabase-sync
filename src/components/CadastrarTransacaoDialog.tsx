@@ -235,7 +235,12 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
 
   async function handleDataTransacaoBlur() {
     setDataNaoUtilError(null);
+    setDataAnteriorInicialError(null);
     if (!data) return;
+    if (isFromPosicao && prefill?.data_inicio && data < prefill.data_inicio) {
+      setDataAnteriorInicialError("Data anterior a Aplicação Inicial");
+      return;
+    }
     if (isPoupanca || (isMoedas && isMoeda)) return;
     const { data: row } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", data).maybeSingle();
     if (!row || !row.dia_util) {
