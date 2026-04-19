@@ -508,7 +508,7 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
       if (resgateDateError) { toast.error(resgateDateError); return; }
       setValidationErrors(new Set());
       const valorNum = parseCurrencyToNumber(valor);
-      if (saldoDisponivel !== null && valorNum > saldoDisponivel) { toast.error("O valor do resgate excede o saldo disponível."); return; }
+      if (saldoDisponivel !== null && (valorNum - saldoDisponivel) > 0.005) { toast.error("O valor do resgate excede o saldo disponível."); return; }
       setSubmitting(true);
       try {
         const tipoMovimentacaoFinal = fecharPosicao ? "Resgate Total" : "Resgate";
@@ -664,7 +664,7 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
   const getInstituicaoNome = (id: string) => instituicoes.find((i) => i.id === id)?.nome || "—";
   const getEmissorNome = (id: string) => emissores.find((e) => e.id === id)?.nome || "—";
   const fmtBrlDisplay = (v: number | null) => v != null ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
-  const valorResgateSuperaSaldo = isResgate && saldoDisponivel !== null && parseCurrencyToNumber(valor) > saldoDisponivel && valor !== "";
+  const valorResgateSuperaSaldo = isResgate && saldoDisponivel !== null && (parseCurrencyToNumber(valor) - saldoDisponivel) > 0.005 && valor !== "";
 
   // Filter tipo options based on origin
   const allowedTipos = origin === "header"
