@@ -163,6 +163,7 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
   const [vencimentoRemanejado, setVencimentoRemanejado] = useState(false);
   const [dataNaoUtilError, setDataNaoUtilError] = useState<string | null>(null);
+  const [dataAnteriorInicialError, setDataAnteriorInicialError] = useState<string | null>(null);
 
   const categoriaSelecionada = categorias.find((c) => c.id === categoriaId);
   const produtoSelecionado = produtos.find((p) => p.id === produtoId);
@@ -204,6 +205,7 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
       setResgateCotacaoRef(null); setResgateCotacaoNeg(""); setValorEmEspecie(false);
       setEditLoaded(false); setValidationErrors(new Set());
       setVencimentoRemanejado(false); setDataNaoUtilError(null);
+      setDataAnteriorInicialError(null);
     }
   }, [open]);
 
@@ -233,7 +235,12 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
 
   async function handleDataTransacaoBlur() {
     setDataNaoUtilError(null);
+    setDataAnteriorInicialError(null);
     if (!data) return;
+    if (isFromPosicao && prefill?.data_inicio && data < prefill.data_inicio) {
+      setDataAnteriorInicialError("Data anterior a Aplicação Inicial");
+      return;
+    }
     if (isPoupanca || (isMoedas && isMoeda)) return;
     const { data: row } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", data).maybeSingle();
     if (!row || !row.dia_util) {
@@ -554,6 +561,12 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
     if (emptyFields.length > 0) { setValidationErrors(new Set(emptyFields)); toast.error("Preencha todos os campos obrigatórios."); return; }
     setValidationErrors(new Set());
 
+    if (isFromPosicao && prefill?.data_inicio && data && data < prefill.data_inicio) {
+      setDataAnteriorInicialError("Data anterior a Aplicação Inicial");
+      toast.error("Data anterior a Aplicação Inicial");
+      return;
+    }
+
     if (!isPoupanca && !(isMoedas && isMoeda)) {
       const { data: diaUtil } = await supabase.from("calendario_dias_uteis").select("dia_util").eq("data", data).single();
       if (!diaUtil) { toast.error("A data informada não foi encontrada no calendário. Verifique se é um dia útil válido."); return; }
@@ -750,9 +763,11 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
                   <div className="grid grid-cols-4 gap-4">
                     <Field label="Data de Transação" required>
                       <input type="date" value={data}
-                        onChange={(e) => { setData(e.target.value); setDataNaoUtilError(null); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
+                        min={isFromPosicao ? prefill?.data_inicio || undefined : undefined}
+                        onChange={(e) => { setData(e.target.value); setDataNaoUtilError(null); setDataAnteriorInicialError(null); setValidationErrors((prev) => { const n = new Set(prev); n.delete("data"); return n; }); }}
                         onBlur={handleDataTransacaoBlur}
-                        className={`input-field ${dataNaoUtilError || validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`} />
+                        className={`input-field ${dataNaoUtilError || dataAnteriorInicialError || validationErrors.has("data") ? "border-destructive ring-1 ring-destructive" : ""}`} />
+                      {dataAnteriorInicialError && <p className="text-xs text-destructive mt-1">{dataAnteriorInicialError}</p>}
                       {dataNaoUtilError && <p className="text-xs text-destructive mt-1">{dataNaoUtilError}</p>}
                     </Field>
                     <Field label="Valor Inicial" required>
