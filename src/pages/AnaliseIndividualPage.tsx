@@ -41,6 +41,7 @@ export interface CustodiaProduct {
   modalidade: string | null;
   categoria_nome: string;
   produto_nome: string;
+  engine: string | null;
   instituicao_nome: string;
   resgate_total: string | null;
   preco_unitario: number | null;
@@ -77,15 +78,20 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
   const [loading, setLoading] = useState(true);
   const calcVersionRef = useRef(0);
 
-  const isPrefixado = product.categoria_nome === "Renda Fixa" && (
-    product.modalidade === "Prefixado" ||
-    product.modalidade === "Pos Fixado" ||
-    product.modalidade === "Pós Fixado" ||
-    product.modalidade === "Mista"
-  );
-  const isPoupanca = product.modalidade === "Poupança";
-  const isMoedas = product.categoria_nome === "Moedas";
-  const hasEngine = isPrefixado || isPoupanca || isMoedas;
+  // Dispatch por engine; fallback legado por categoria/modalidade enquanto a
+  // migration não estiver aplicada a todos os produtos.
+  const engineId: "CDBLIKE" | "POUPANCA" | "CAMBIO" | null = (() => {
+    const e = product.engine;
+    if (e === "CDBLIKE" || e === "POUPANCA" || e === "CAMBIO") return e;
+    if (product.modalidade === "Poupança") return "POUPANCA";
+    if (product.categoria_nome === "Moedas") return "CAMBIO";
+    if (product.categoria_nome === "Renda Fixa") return "CDBLIKE";
+    return null;
+  })();
+  const isPrefixado = engineId === "CDBLIKE";
+  const isPoupanca = engineId === "POUPANCA";
+  const isMoedas = engineId === "CAMBIO";
+  const hasEngine = engineId !== null;
 
   // Compute max end date once (does not change with dataReferencia)
   const maxEndDate = useMemo(() => {
