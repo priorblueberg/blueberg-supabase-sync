@@ -1,4 +1,4 @@
-import { buildIpcaCycleDailyFactorMap, buildIpcaCdbDailyMultMap, type IpcaProjecaoRecord, type IpcaRecord } from "@/lib/ipcaHelper";
+import { buildIpcaCdbLikeDailyMap, selectTipoTaxaInicial, type CalendarioIpcaRecord, type IpcaDailyEntry } from "@/lib/ipcaHelper";
 
 /**
  * Engine de Cálculo Diário de Renda Fixa Prefixada
