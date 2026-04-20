@@ -51,6 +51,7 @@ interface CustodiaProduct {
   data_limite: string | null;
   categoria_nome: string;
   produto_nome: string;
+  engine: string | null;
   instituicao_nome: string;
   valor_investido: number;
   estrategia: string | null;
@@ -147,7 +148,7 @@ export default function CarteiraRendaFixaPage() {
           .maybeSingle(),
         supabase
           .from("custodia")
-          .select("id, codigo_custodia, nome, data_inicio, data_calculo, data_limite, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, valor_investido, estrategia, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
+          .select("id, codigo_custodia, nome, data_inicio, data_calculo, data_limite, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, valor_investido, estrategia, categorias(nome), produtos(nome, engine), instituicoes(nome), emissores(nome)")
           .eq("user_id", user.id),
       ]);
       console.log(`[PERF][CarteiraRF]   fetch custodia+carteira: ${(performance.now()-tFetch).toFixed(0)}ms`);
@@ -162,7 +163,13 @@ export default function CarteiraRendaFixaPage() {
         }))
       );
       const rfProductsAll: CustodiaProduct[] = (custodiaData || [])
-        .filter((r: any) => r.categorias?.nome === "Renda Fixa")
+        .filter((r: any) => {
+          // Engine-based: CDBLIKE ou POUPANCA. Fallback legado por categoria.
+          const eng = r.produtos?.engine;
+          if (eng === "CDBLIKE" || eng === "POUPANCA") return true;
+          if (eng != null) return false;
+          return r.categorias?.nome === "Renda Fixa";
+        })
         .map((r: any) => ({
           id: r.id,
           codigo_custodia: r.codigo_custodia,
@@ -178,6 +185,7 @@ export default function CarteiraRendaFixaPage() {
           data_limite: r.data_limite,
           categoria_nome: r.categorias?.nome || "",
           produto_nome: r.produtos?.nome || "",
+          engine: r.produtos?.engine ?? null,
           instituicao_nome: r.instituicoes?.nome || "—",
           data_calculo: r.data_calculo,
           valor_investido: Number(r.valor_investido),
@@ -426,6 +434,7 @@ export default function CarteiraRendaFixaPage() {
             modalidade: product.modalidade,
             categoria_nome: product.categoria_nome,
             produto_nome: product.produto_nome,
+            engine: product.engine,
             instituicao_nome: product.instituicao_nome,
             resgate_total: product.resgate_total,
             preco_unitario: product.preco_unitario,
