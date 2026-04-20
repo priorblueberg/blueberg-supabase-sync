@@ -119,7 +119,7 @@ export default function PosicaoConsolidadaPage() {
       const [{ data: products }, { data: carteirasData }] = await Promise.all([
         supabase
           .from("custodia")
-          .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, valor_investido, resgate_total, pagamento, vencimento, indexador, data_limite, quantidade, categoria_id, produto_id, instituicao_id, emissor_id, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
+          .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, valor_investido, resgate_total, pagamento, vencimento, indexador, data_limite, quantidade, categoria_id, produto_id, instituicao_id, emissor_id, categorias(nome), produtos(nome, engine), instituicoes(nome), emissores(nome)")
           .eq("user_id", user!.id),
         supabase
           .from("controle_de_carteiras")
@@ -156,6 +156,7 @@ export default function PosicaoConsolidadaPage() {
         categoria_id: r.categoria_id,
         produto_nome: r.produtos?.nome || "",
         produto_id: r.produto_id,
+        engine: r.produtos?.engine ?? null,
         resgate_total: r.resgate_total,
         pagamento: r.pagamento,
         vencimento: r.vencimento,
@@ -172,10 +173,26 @@ export default function PosicaoConsolidadaPage() {
       // Plugin global: ativo só aparece se data_inicio <= dataRef (liquidados continuam visíveis)
       const produtosValidos = filtrarProdutosPorDataReferencia(mapped, dataReferenciaISO);
 
-      const rfProducts = produtosValidos.filter((p) => p.categoria_nome === "Renda Fixa" && p.modalidade !== "Poupança");
-      const poupancaProducts = produtosValidos.filter((p) => p.modalidade === "Poupança");
-      const cambioProducts = produtosValidos.filter((p) => p.categoria_nome === "Moedas");
-      const otherProducts = produtosValidos.filter((p) => p.categoria_nome !== "Renda Fixa" && p.modalidade !== "Poupança" && p.categoria_nome !== "Moedas");
+      // Dispatch por engine (fonte: produtos.engine).
+      // Fallback legado por categoria/modalidade enquanto a migration não foi aplicada
+      // a todos os produtos — garante retrocompatibilidade total.
+      const engineOf = (p: CustodiaProduct): "CDBLIKE" | "POUPANCA" | "CAMBIO" | null => {
+        if (p.engine === "CDBLIKE" || p.engine === "POUPANCA" || p.engine === "CAMBIO") return p.engine;
+        if (p.engine != null) {
+          console.warn("[engine] valor desconhecido em produto:", p.codigo_custodia, p.engine);
+          return null;
+        }
+        // Legacy fallback (pré-migration)
+        if (p.modalidade === "Poupança") return "POUPANCA";
+        if (p.categoria_nome === "Renda Fixa") return "CDBLIKE";
+        if (p.categoria_nome === "Moedas") return "CAMBIO";
+        return null;
+      };
+      const rfProducts = produtosValidos.filter((p) => engineOf(p) === "CDBLIKE");
+      const poupancaProducts = produtosValidos.filter((p) => engineOf(p) === "POUPANCA");
+      const cambioProducts = produtosValidos.filter((p) => engineOf(p) === "CAMBIO");
+      const otherProducts = produtosValidos.filter((p) => engineOf(p) === null);
+
 
       const allCalcProducts = [...rfProducts, ...poupancaProducts, ...cambioProducts];
       const minDate = allCalcProducts.reduce((min, p) => (p.data_inicio < min ? p.data_inicio : min), allCalcProducts[0]?.data_inicio || dataReferenciaISO);
