@@ -88,20 +88,25 @@ export default function ProventosRecebidosPage() {
 
       const { data: custodias } = await supabase
         .from("custodia")
-        .select("codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, categoria_id, indexador, categorias(nome)")
+        .select("codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, categoria_id, indexador, categorias(nome), produtos(nome, engine)")
         .eq("user_id", user.id);
 
       if (!custodias || custodias.length === 0) {
         setRows([]); setLoading(false); return;
       }
 
-      // ALL renda fixa products (not just periodic)
-      const rfProducts = custodias.filter(
-        (c: any) => c.categorias?.nome === "Renda Fixa" || (!c.categorias && c.modalidade !== "Poupança")
-      );
-      const poupancaProducts = custodias.filter(
-        (c: any) => c.modalidade === "Poupança"
-      );
+      // Dispatch por engine; fallback legado por categoria/modalidade.
+      const engineOf = (c: any): "CDBLIKE" | "POUPANCA" | "CAMBIO" | null => {
+        const e = c.produtos?.engine;
+        if (e === "CDBLIKE" || e === "POUPANCA" || e === "CAMBIO") return e;
+        if (e != null) return null;
+        if (c.modalidade === "Poupança") return "POUPANCA";
+        if (c.categorias?.nome === "Renda Fixa") return "CDBLIKE";
+        if (c.categorias?.nome === "Moedas") return "CAMBIO";
+        return null;
+      };
+      const rfProducts = custodias.filter((c: any) => engineOf(c) === "CDBLIKE");
+      const poupancaProducts = custodias.filter((c: any) => engineOf(c) === "POUPANCA");
 
       if (rfProducts.length === 0 && poupancaProducts.length === 0) {
         setRows([]); setLoading(false); return;
