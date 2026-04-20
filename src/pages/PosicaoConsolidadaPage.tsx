@@ -432,17 +432,10 @@ export default function PosicaoConsolidadaPage() {
       }
       console.log(`[PERF][PosConsolidada]   Câmbio engine (${cambioProducts.length} prods): ${(performance.now()-tCambio).toFixed(0)}ms`);
 
-      for (const product of otherProducts) {
-        posicaoRows.push({
-          nome: product.nome || product.produto_nome,
-          valorAtualizado: product.valor_investido,
-          ganhoFinanceiro: 0,
-          rentabilidade: 0,
-          custodiante: product.instituicao_nome,
-          ativo: true,
-          product,
-        });
-      }
+      // Produtos sem engine configurada são ignorados (warning já emitido acima).
+      // NÃO renderizar com fallback — isso mascarava bugs de RLS/JOIN
+      // (ex.: produtos.engine = null fazendo todos os títulos aparecerem como
+      // "Em custódia" com valor=valor_investido e ganho=0).
 
       // Cancellation check before expensive carteira computation
       if (requestVersion !== calcVersionRef.current) { setLoading(false); return; }
