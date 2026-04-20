@@ -8,6 +8,7 @@ import { fetchIpcaRecordsBatch } from "@/lib/ipcaHelper";
 import { calcularCarteiraRendaFixa } from "@/lib/carteiraRendaFixaEngine";
 import { calcularPoupancaDiario, type PoupancaLote, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import { calcularCambioDiario, type CambioDailyRow } from "@/lib/cambioEngine";
+import { getEngineId, warnMissingEngine } from "@/lib/engines/registry";
 import {
   cacheRFResult, getCachedRFResult, buildMovsHash,
   cachePoupancaResult, getCachedPoupancaResult,
