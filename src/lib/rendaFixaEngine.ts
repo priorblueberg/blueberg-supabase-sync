@@ -334,22 +334,22 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
 
     // Multiplicador
     let dailyMult: number;
+    let tipoTaxaDia: "IPCA" | "Projetada" | null = null;
     if (isPosFixadoIPCA) {
-      // CDB IPCA: ipcaDailyFactorMap contains the daily inflation increment
-      // (1.0 on non-business days, >1 on business days).
-      // Combine with taxa real factor (which also only applies on business days).
-      if (ipcaDailyFactorMap) {
-        const ipcaFator = ipcaDailyFactorMap.get(cal.data) || 1;
+      // CDBLIKE IPCA: ipcaDailyMap traz o multiplicador diário e o tipoTaxa.
+      if (ipcaDailyMap) {
+        const entry = ipcaDailyMap.get(cal.data);
+        const ipcaFator = entry?.mult ?? 1;
+        tipoTaxaDia = entry?.tipoTaxa ?? null;
         if (diaUtil) {
           dailyMult = ipcaFator * ipcaTaxaRealFactor - 1;
         } else {
-          dailyMult = 0; // No accrual on non-business days for CDB IPCA
+          dailyMult = 0;
         }
       } else {
         dailyMult = 0;
       }
     } else if (isMistaCDI) {
-      // Mista: (1 + CDI Diário anterior arredondado a 8 casas - ANBIMA) * (1 + Taxa)^(1/252) - 1
       const prevCdiDiario = rows.length > 0 ? rows[rows.length - 1].cdiDiario : 0;
       const cdiArredondado = parseFloat(prevCdiDiario.toFixed(8));
       dailyMult = diaUtil ? (1 + cdiArredondado) * mistaSpreadFactor - 1 : 0;
@@ -615,6 +615,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       rentabilidadeDiaria: rentDiaria,
       rentDiariaPct,
       rentAcumulada2,
+      tipoTaxa: tipoTaxaDia,
     });
 
     prevLiquido = liquido1;
@@ -667,5 +668,6 @@ function makeZeroRow(data: string, diaUtil: boolean, cotaInicial: number): Daily
     rentabilidadeDiaria: null,
     rentDiariaPct: 0,
     rentAcumulada2: 0,
+    tipoTaxa: null,
   };
 }

@@ -13,7 +13,7 @@ import { calcularPoupancaDiario, buildPoupancaLotesFromMovs } from "@/lib/poupan
 import { calcularCambioDiario, getCotacaoTable, getCurrencyCode, type CambioDailyRow } from "@/lib/cambioEngine";
 import { getEngineId } from "@/lib/engines/registry";
 import { fetchSelic, fetchTr, fetchPoupancaRendimento } from "@/lib/dataCache";
-import { fetchIpcaRecords } from "@/lib/ipcaHelper";
+import { fetchCalendarioIpca } from "@/lib/ipcaHelper";
 import RentabilidadeDetailTable, { DetailRow } from "@/components/RentabilidadeDetailTable";
 import {
   fetchCalendario, fetchCdi, fetchMovimentacoes,
@@ -153,7 +153,7 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
           setEngineRows(cached);
         } else {
           // Cache miss — compute for max range and cache
-          const ipcaData = await fetchIpcaRecords(product.indexador, product.data_inicio, calendarEndDate);
+          const calendarioIpcaRecords = await fetchCalendarioIpca(product.indexador, product.data_inicio, calendarEndDate);
           if (currentVersion !== calcVersionRef.current) return;
 
           const fullRows = calcularRendaFixaDiario({
@@ -170,8 +170,8 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
             indexador: product.indexador,
             cdiRecords: cdiData.map(r => ({ data: r.data, taxa_anual: r.taxa_anual })),
             calendarioSorted: true,
-            ipcaOficialRecords: ipcaData?.oficial,
-            ipcaProjecaoRecords: ipcaData?.projecao,
+            calendarioIpcaRecords,
+            engine: product.engine,
           });
 
           // Cache the full result

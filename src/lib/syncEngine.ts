@@ -6,7 +6,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
-import { fetchIpcaRecords } from "@/lib/ipcaHelper";
+import { fetchCalendarioIpca } from "@/lib/ipcaHelper";
 import { invalidateEngineCache } from "@/lib/engineCache";
 import { getDiaAniversarioPoupanca } from "@/lib/poupancaEngine";
 
@@ -26,17 +26,14 @@ async function fetchCdiIfNeeded(
   return data?.map((r) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) })) || undefined;
 }
 
-/** Fetch IPCA inputs for the engine using the anniversary-cycle helper contract. */
+/** Fetch IPCA inputs for the engine using calendario_ipca. */
 async function fetchIpcaEngineInputs(
   indexador: string | null,
   dataInicio: string,
   dataFim: string
 ) {
-  const ipcaData = await fetchIpcaRecords(indexador, dataInicio, dataFim);
-  return {
-    ipcaOficialRecords: ipcaData?.oficial,
-    ipcaProjecaoRecords: ipcaData?.projecao,
-  };
+  const calendarioIpcaRecords = await fetchCalendarioIpca(indexador, dataInicio, dataFim);
+  return { calendarioIpcaRecords };
 }
 
 // ── Resgate no Vencimento Auto Sync ──
@@ -106,7 +103,7 @@ async function syncManualResgatesTotais(
     if (!calendario || !movs) return;
 
     const cdiRecords = await fetchCdiIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, lastResgateDate);
-    const { ipcaOficialRecords, ipcaProjecaoRecords } = await fetchIpcaEngineInputs(custodiaRecord.indexador, custodiaRecord.data_inicio, lastResgateDate);
+    const { calendarioIpcaRecords } = await fetchIpcaEngineInputs(custodiaRecord.indexador, custodiaRecord.data_inicio, lastResgateDate);
 
     for (const manualResgate of manualResgates) {
       const calendarioAteData = calendario.filter((dia) => dia.data <= manualResgate.data);
@@ -133,8 +130,7 @@ async function syncManualResgatesTotais(
         vencimento: custodiaRecord.vencimento,
         indexador: custodiaRecord.indexador,
         cdiRecords,
-        ipcaOficialRecords,
-        ipcaProjecaoRecords,
+        calendarioIpcaRecords,
       });
 
       const rowDia = rows[rows.length - 1];
@@ -240,7 +236,7 @@ async function syncResgateNoVencimento(
     if (!calendario || !movs) return;
 
     const cdiRecords = await fetchCdiIfNeeded(custodiaRecord.indexador, custodiaRecord.data_inicio, vencimento!);
-    const { ipcaOficialRecords, ipcaProjecaoRecords } = await fetchIpcaEngineInputs(custodiaRecord.indexador, custodiaRecord.data_inicio, vencimento!);
+    const { calendarioIpcaRecords } = await fetchIpcaEngineInputs(custodiaRecord.indexador, custodiaRecord.data_inicio, vencimento!);
 
     const rows = calcularRendaFixaDiario({
       dataInicio: custodiaRecord.data_inicio,
@@ -255,8 +251,7 @@ async function syncResgateNoVencimento(
       vencimento: custodiaRecord.vencimento,
       indexador: custodiaRecord.indexador,
       cdiRecords,
-      ipcaOficialRecords,
-      ipcaProjecaoRecords,
+      calendarioIpcaRecords,
     });
 
     if (rows.length === 0) return;
@@ -974,7 +969,7 @@ export async function reprocessMovimentacoesForCodigo(
 
   // 5. Fetch CDI if needed
   const cdiRecordsReprocess = await fetchCdiIfNeeded(aplicacaoInicial.indexador, baseInfo.dataInicio, calEnd > refDate ? calEnd : refDate);
-  const { ipcaOficialRecords: ipcaOficialRecordsReprocess, ipcaProjecaoRecords: ipcaProjecaoRecordsReprocess } = await fetchIpcaEngineInputs(aplicacaoInicial.indexador, baseInfo.dataInicio, calEnd > refDate ? calEnd : refDate);
+  const { calendarioIpcaRecords: calendarioIpcaRecordsReprocess } = await fetchIpcaEngineInputs(aplicacaoInicial.indexador, baseInfo.dataInicio, calEnd > refDate ? calEnd : refDate);
 
   // 6. Run engine ONCE with ALL movements to get PU/qty for each date
   //    This replaces N separate engine calls with a single one.
@@ -997,8 +992,7 @@ export async function reprocessMovimentacoesForCodigo(
     vencimento: baseInfo.vencimento,
     indexador: aplicacaoInicial.indexador,
     cdiRecords: cdiRecordsReprocess,
-    ipcaOficialRecords: ipcaOficialRecordsReprocess,
-    ipcaProjecaoRecords: ipcaProjecaoRecordsReprocess,
+    calendarioIpcaRecords: calendarioIpcaRecordsReprocess,
     calendarioSorted: true,
   });
 

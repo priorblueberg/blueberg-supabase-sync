@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, type DailyRow } from "@/lib/rendaFixaEngine";
-import { fetchIpcaRecordsBatch } from "@/lib/ipcaHelper";
+import { fetchCalendarioIpcaBatch } from "@/lib/ipcaHelper";
 import { calcularCarteiraRendaFixa } from "@/lib/carteiraRendaFixaEngine";
 import { calcularPoupancaDiario, type PoupancaLote, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import { calcularCambioDiario, type CambioDailyRow } from "@/lib/cambioEngine";
@@ -246,7 +246,7 @@ export default function PosicaoConsolidadaPage() {
 
       // Fetch IPCA if any product uses it
       const tIpca = performance.now();
-      const ipcaData = await fetchIpcaRecordsBatch(rfProducts, dataReferenciaISO);
+      const calendarioIpcaRecords = await fetchCalendarioIpcaBatch(rfProducts, dataReferenciaISO);
       console.log(`[PERF][PosConsolidada]   fetch IPCA: ${(performance.now()-tIpca).toFixed(0)}ms`);
 
       const tRF = performance.now();
@@ -296,8 +296,8 @@ export default function PosicaoConsolidadaPage() {
             dataLimite: product.data_limite,
             precomputedCdiMap: cdiMap,
             calendarioSorted: true,
-            ipcaOficialRecords: product.indexador === "IPCA" ? ipcaData?.oficial : undefined,
-            ipcaProjecaoRecords: product.indexador === "IPCA" ? ipcaData?.projecao : undefined,
+            calendarioIpcaRecords: product.indexador === "IPCA" ? calendarioIpcaRecords : undefined,
+            engine: (product as any).engine,
           });
           console.log(`[PERF][PosConsolidada]     engine RF cod=${product.codigo_custodia} (${fullRows.length} rows): ${(performance.now()-tEngine).toFixed(0)}ms`);
           cacheRFResult(product.codigo_custodia, fullRows, cacheParams);

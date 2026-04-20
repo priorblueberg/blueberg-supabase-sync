@@ -5,7 +5,7 @@ import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
-import { fetchIpcaRecordsBatch } from "@/lib/ipcaHelper";
+import { fetchCalendarioIpcaBatch } from "@/lib/ipcaHelper";
 import { calcularPoupancaDiario, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import { cacheRFResult, getCachedRFResult, buildMovsHash } from "@/lib/engineCache";
 import {
@@ -157,7 +157,7 @@ export default function ProventosRecebidosPage() {
       const allProventos: ProventoRow[] = [];
 
       // 1. Renda Fixa — ALL products
-      const ipcaData = await fetchIpcaRecordsBatch(rfProducts, dataRef);
+      const calendarioIpcaRecords = await fetchCalendarioIpcaBatch(rfProducts, dataRef);
       if (myVersion !== calcVersionRef.current) { setLoading(false); return; }
 
       for (const prod of rfProducts) {
@@ -200,8 +200,8 @@ export default function ProventosRecebidosPage() {
             vencimento: prod.vencimento,
             calendarioSorted: true,
             indexador: prodIndexador,
-            ipcaOficialRecords: prodIndexadorUpper === "IPCA" ? ipcaData?.oficial : undefined,
-            ipcaProjecaoRecords: prodIndexadorUpper === "IPCA" ? ipcaData?.projecao : undefined,
+            calendarioIpcaRecords: prodIndexadorUpper === "IPCA" ? calendarioIpcaRecords : undefined,
+            engine: (prod as any).produtos?.engine ?? null,
             cdiRecords,
           });
           cacheRFResult(prod.codigo_custodia, fullRows, cacheParams);
