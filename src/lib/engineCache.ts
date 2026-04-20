@@ -57,6 +57,7 @@ function buildParamHash(params: {
   movsHash: string;
 }): string {
   return [
+    "v2-ipca-cal", // bump: migração para calendario_ipca
     params.dataInicio,
     params.taxa,
     params.modalidade,

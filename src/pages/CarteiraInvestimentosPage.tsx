@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
-import { fetchIpcaRecordsBatch } from "@/lib/ipcaHelper";
+import { fetchCalendarioIpcaBatch } from "@/lib/ipcaHelper";
 import { calcularCarteiraRendaFixa, CarteiraRFRow } from "@/lib/carteiraRendaFixaEngine";
 import { calcularPoupancaDiario, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import { calcularCambioDiario, getCurrencyCode, type CambioDailyRow } from "@/lib/cambioEngine";
@@ -247,7 +247,7 @@ export default function CarteiraInvestimentosPage() {
         }
 
         // 3. Compute RF product rows
-        const ipcaData = await fetchIpcaRecordsBatch(
+        const calendarioIpcaRecords = await fetchCalendarioIpcaBatch(
           rfCustodia.filter((p: any) => p.modalidade !== "Poupança"),
           globalDataCalculo
         );
@@ -295,8 +295,8 @@ export default function CarteiraInvestimentosPage() {
               dataLimite: product.data_limite,
               precomputedCdiMap: cdiMap,
               calendarioSorted: true,
-              ipcaOficialRecords: product.indexador === "IPCA" ? ipcaData?.oficial : undefined,
-              ipcaProjecaoRecords: product.indexador === "IPCA" ? ipcaData?.projecao : undefined,
+              calendarioIpcaRecords: product.indexador === "IPCA" ? calendarioIpcaRecords : undefined,
+              engine: (product as any).engine,
             });
             cacheRFResult(product.codigo_custodia, fullRows, cacheParams);
             engineRows = getCachedRFResult(product.codigo_custodia, calcEnd, cacheParams) || fullRows;

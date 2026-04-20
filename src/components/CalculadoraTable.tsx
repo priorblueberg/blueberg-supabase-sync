@@ -39,6 +39,7 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">% Rent. Acumulada</TableHead>
             
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Multiplicador</TableHead>
+            <TableHead className="text-xs whitespace-nowrap text-center bg-muted">Tipo Taxa</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-center bg-muted">Pgto Juros</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Apoio Cupom</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Cupom Acumulado</TableHead>
@@ -102,6 +103,7 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
               <TableCell className="text-xs text-right font-mono">
                 {r.multiplicador > 0 ? r.multiplicador.toFixed(8) : "—"}
               </TableCell>
+              <TableCell className="text-xs text-center">{r.tipoTaxa ?? "—"}</TableCell>
               <TableCell className="text-xs text-center">
                 {r.jurosPago > 0.01
                   ? "Sim"

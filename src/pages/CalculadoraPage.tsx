@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
 import { getEngineId } from "@/lib/engines/registry";
-import { fetchIpcaRecords, fetchIpcaRecordsBatch } from "@/lib/ipcaHelper";
+import { fetchCalendarioIpca, fetchCalendarioIpcaBatch } from "@/lib/ipcaHelper";
 import { calcularCarteiraRendaFixa, CarteiraRFRow } from "@/lib/carteiraRendaFixaEngine";
 import { calcularPoupancaDiario, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import {
@@ -138,7 +138,7 @@ export default function CalculadoraPage() {
 
             if (currentVersion !== calcVersionRef.current) return;
 
-            const ipcaData = await fetchIpcaRecords(product.indexador, product.data_inicio, dataFim);
+            const calendarioIpcaRecords = await fetchCalendarioIpca(product.indexador, product.data_inicio, dataFim);
             if (currentVersion !== calcVersionRef.current) return;
 
             const result = calcularRendaFixaDiario({
@@ -155,8 +155,8 @@ export default function CalculadoraPage() {
               indexador: product.indexador,
               cdiRecords,
               dataLimite: product.data_limite,
-              ipcaOficialRecords: ipcaData?.oficial,
-              ipcaProjecaoRecords: ipcaData?.projecao,
+              calendarioIpcaRecords,
+              engine: product.engine,
             });
 
             cacheRFResult(product.codigo_custodia, result, cacheParams);
@@ -218,7 +218,7 @@ export default function CalculadoraPage() {
       const cdiMap = getCdiMap(cdiRecords, appliedVersion);
       const movByCodigoMap = getMovByCodigoMap(allMovs, appliedVersion);
 
-      const ipcaData = await fetchIpcaRecordsBatch(rfProducts, dataCalculo);
+      const calendarioIpcaRecords = await fetchCalendarioIpcaBatch(rfProducts, dataCalculo);
       if (currentVersion !== calcVersionRef.current) return;
 
       const allProductRows = rfProducts.map((product) => {
@@ -241,8 +241,8 @@ export default function CalculadoraPage() {
           dataLimite: product.data_limite,
           precomputedCdiMap: cdiMap,
           calendarioSorted: true,
-          ipcaOficialRecords: product.indexador === "IPCA" ? ipcaData?.oficial : undefined,
-          ipcaProjecaoRecords: product.indexador === "IPCA" ? ipcaData?.projecao : undefined,
+          calendarioIpcaRecords: product.indexador === "IPCA" ? calendarioIpcaRecords : undefined,
+          engine: product.engine,
         });
       });
 
