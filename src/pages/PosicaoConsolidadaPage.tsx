@@ -8,6 +8,7 @@ import { fetchIpcaRecordsBatch } from "@/lib/ipcaHelper";
 import { calcularCarteiraRendaFixa } from "@/lib/carteiraRendaFixaEngine";
 import { calcularPoupancaDiario, type PoupancaLote, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
 import { calcularCambioDiario, type CambioDailyRow } from "@/lib/cambioEngine";
+import { getEngineId, warnMissingEngine } from "@/lib/engines/registry";
 import {
   cacheRFResult, getCachedRFResult, buildMovsHash,
   cachePoupancaResult, getCachedPoupancaResult,
@@ -174,25 +175,16 @@ export default function PosicaoConsolidadaPage() {
       // Plugin global: ativo só aparece se data_inicio <= dataRef (liquidados continuam visíveis)
       const produtosValidos = filtrarProdutosPorDataReferencia(mapped, dataReferenciaISO);
 
-      // Dispatch por engine (fonte: produtos.engine).
-      // Fallback legado por categoria/modalidade enquanto a migration não foi aplicada
-      // a todos os produtos — garante retrocompatibilidade total.
-      const engineOf = (p: CustodiaProduct): "CDBLIKE" | "POUPANCA" | "CAMBIO" | null => {
-        if (p.engine === "CDBLIKE" || p.engine === "POUPANCA" || p.engine === "CAMBIO") return p.engine;
-        if (p.engine != null) {
-          console.warn("[engine] valor desconhecido em produto:", p.codigo_custodia, p.engine);
-          return null;
+      // Dispatch exclusivo via produtos.engine (single source of truth).
+      const rfProducts = produtosValidos.filter((p) => getEngineId(p) === "CDBLIKE");
+      const poupancaProducts = produtosValidos.filter((p) => getEngineId(p) === "POUPANCA");
+      const cambioProducts = produtosValidos.filter((p) => getEngineId(p) === "CAMBIO");
+      const otherProducts = produtosValidos.filter((p) => getEngineId(p) === null);
+      otherProducts.forEach((p) => {
+        if (p.categoria_nome === "Renda Fixa" || p.categoria_nome === "Moedas") {
+          warnMissingEngine("PosicaoConsolidada", p);
         }
-        // Legacy fallback (pré-migration)
-        if (p.modalidade === "Poupança") return "POUPANCA";
-        if (p.categoria_nome === "Renda Fixa") return "CDBLIKE";
-        if (p.categoria_nome === "Moedas") return "CAMBIO";
-        return null;
-      };
-      const rfProducts = produtosValidos.filter((p) => engineOf(p) === "CDBLIKE");
-      const poupancaProducts = produtosValidos.filter((p) => engineOf(p) === "POUPANCA");
-      const cambioProducts = produtosValidos.filter((p) => engineOf(p) === "CAMBIO");
-      const otherProducts = produtosValidos.filter((p) => engineOf(p) === null);
+      });
 
 
       const allCalcProducts = [...rfProducts, ...poupancaProducts, ...cambioProducts];

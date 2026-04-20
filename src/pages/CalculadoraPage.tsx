@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { calcularRendaFixaDiario, DailyRow } from "@/lib/rendaFixaEngine";
+import { getEngineId } from "@/lib/engines/registry";
 import { fetchIpcaRecords, fetchIpcaRecordsBatch } from "@/lib/ipcaHelper";
 import { calcularCarteiraRendaFixa, CarteiraRFRow } from "@/lib/carteiraRendaFixaEngine";
 import { calcularPoupancaDiario, buildPoupancaLotesFromMovs } from "@/lib/poupancaEngine";
@@ -194,12 +195,10 @@ export default function CalculadoraPage() {
       const dataInicio = carteiraData.data_inicio;
       const dataCalculo = carteiraData.data_calculo;
 
-      // Engine-based: CDBLIKE/POUPANCA. Fallback legado por categoria.
+      // Engine-based exclusivo: CDBLIKE/POUPANCA via produtos.engine.
       const rfProducts = products.filter(p => {
-        const e = (p as any).engine;
-        if (e === "CDBLIKE" || e === "POUPANCA") return true;
-        if (e != null) return false;
-        return p.categoria_nome === "Renda Fixa";
+        const id = getEngineId(p);
+        return id === "CDBLIKE" || id === "POUPANCA";
       });
       if (rfProducts.length === 0) { setCarteiraRows([]); setLoading(false); return; }
 
