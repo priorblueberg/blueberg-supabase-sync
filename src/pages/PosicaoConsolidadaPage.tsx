@@ -47,6 +47,7 @@ interface CustodiaProduct {
   categoria_id: string;
   produto_nome: string;
   produto_id: string;
+  engine: string | null;
   resgate_total: string | null;
   pagamento: string | null;
   vencimento: string | null;
