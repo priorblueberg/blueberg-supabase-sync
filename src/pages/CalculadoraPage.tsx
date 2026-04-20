@@ -194,7 +194,13 @@ export default function CalculadoraPage() {
       const dataInicio = carteiraData.data_inicio;
       const dataCalculo = carteiraData.data_calculo;
 
-      const rfProducts = products.filter(p => p.categoria_nome === "Renda Fixa");
+      // Engine-based: CDBLIKE/POUPANCA. Fallback legado por categoria.
+      const rfProducts = products.filter(p => {
+        const e = (p as any).engine;
+        if (e === "CDBLIKE" || e === "POUPANCA") return true;
+        if (e != null) return false;
+        return p.categoria_nome === "Renda Fixa";
+      });
       if (rfProducts.length === 0) { setCarteiraRows([]); setLoading(false); return; }
 
       const maxEndDate = rfProducts.reduce((max, p) => {
