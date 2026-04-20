@@ -53,6 +53,7 @@ export interface CustodiaRecord {
   categoria_nome: string;
   produto_id: string;
   produto_nome: string;
+  engine: string | null;
   resgate_total: string | null;
   pagamento: string | null;
   vencimento: string | null;
@@ -241,7 +242,7 @@ export async function fetchCustodia(
 
   const { data } = await supabase
     .from("custodia")
-    .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, resgate_total, pagamento, vencimento, indexador, data_limite, valor_investido, categoria_id, produto_id, instituicao_id, emissor_id, estrategia, alocacao_patrimonial, quantidade, sigla_tesouro, status_variavel, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
+    .select("id, codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, multiplicador, preco_unitario, resgate_total, pagamento, vencimento, indexador, data_limite, valor_investido, categoria_id, produto_id, instituicao_id, emissor_id, estrategia, alocacao_patrimonial, quantidade, sigla_tesouro, status_variavel, categorias(nome), produtos(nome, engine), instituicoes(nome), emissores(nome)")
     .eq("user_id", userId);
 
   const result: CustodiaRecord[] = (data || []).map((r: any) => ({
@@ -258,6 +259,7 @@ export async function fetchCustodia(
     categoria_nome: r.categorias?.nome || "",
     produto_id: r.produto_id,
     produto_nome: r.produtos?.nome || "",
+    engine: r.produtos?.engine ?? null,
     resgate_total: r.resgate_total,
     pagamento: r.pagamento,
     vencimento: r.vencimento,

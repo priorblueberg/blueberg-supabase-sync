@@ -41,6 +41,7 @@ export interface CustodiaProduct {
   modalidade: string | null;
   categoria_nome: string;
   produto_nome: string;
+  engine: string | null;
   instituicao_nome: string;
   resgate_total: string | null;
   preco_unitario: number | null;
@@ -77,15 +78,20 @@ export function ProductDetail({ product, onBack, backLabel = "Voltar para lista 
   const [loading, setLoading] = useState(true);
   const calcVersionRef = useRef(0);
 
-  const isPrefixado = product.categoria_nome === "Renda Fixa" && (
-    product.modalidade === "Prefixado" ||
-    product.modalidade === "Pos Fixado" ||
-    product.modalidade === "Pós Fixado" ||
-    product.modalidade === "Mista"
-  );
-  const isPoupanca = product.modalidade === "Poupança";
-  const isMoedas = product.categoria_nome === "Moedas";
-  const hasEngine = isPrefixado || isPoupanca || isMoedas;
+  // Dispatch por engine; fallback legado por categoria/modalidade enquanto a
+  // migration não estiver aplicada a todos os produtos.
+  const engineId: "CDBLIKE" | "POUPANCA" | "CAMBIO" | null = (() => {
+    const e = product.engine;
+    if (e === "CDBLIKE" || e === "POUPANCA" || e === "CAMBIO") return e;
+    if (product.modalidade === "Poupança") return "POUPANCA";
+    if (product.categoria_nome === "Moedas") return "CAMBIO";
+    if (product.categoria_nome === "Renda Fixa") return "CDBLIKE";
+    return null;
+  })();
+  const isPrefixado = engineId === "CDBLIKE";
+  const isPoupanca = engineId === "POUPANCA";
+  const isMoedas = engineId === "CAMBIO";
+  const hasEngine = engineId !== null;
 
   // Compute max end date once (does not change with dataReferencia)
   const maxEndDate = useMemo(() => {
@@ -578,7 +584,7 @@ export default function AnaliseIndividualPage() {
       setLoading(true);
       const { data } = await supabase
         .from("custodia")
-        .select("id, nome, codigo_custodia, data_inicio, data_calculo, data_limite, valor_investido, taxa, indexador, vencimento, modalidade, preco_unitario, categoria_id, produto_id, instituicao_id, resgate_total, pagamento, produtos(nome), instituicoes(nome), categorias(nome)");
+        .select("id, nome, codigo_custodia, data_inicio, data_calculo, data_limite, valor_investido, taxa, indexador, vencimento, modalidade, preco_unitario, categoria_id, produto_id, instituicao_id, resgate_total, pagamento, produtos(nome, engine), instituicoes(nome), categorias(nome)");
 
       if (data) {
         const mapped: CustodiaProduct[] = data.map((row: any) => ({
@@ -595,6 +601,7 @@ export default function AnaliseIndividualPage() {
           modalidade: row.modalidade,
           categoria_nome: row.categorias?.nome || "—",
           produto_nome: row.produtos?.nome || "—",
+          engine: row.produtos?.engine ?? null,
           instituicao_nome: row.instituicoes?.nome || "—",
           resgate_total: row.resgate_total,
           preco_unitario: row.preco_unitario,
