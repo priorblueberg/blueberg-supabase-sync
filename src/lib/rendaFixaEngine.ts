@@ -76,6 +76,8 @@ export interface DailyRow {
   // New: Rent. Diária (%) and Rent. Acum (2) — composição diária
   rentDiariaPct: number;
   rentAcumulada2: number;
+  /** Tipo de taxa IPCA usada nesse dia (somente CDBLIKE+IPCA, dia útil). */
+  tipoTaxa?: "IPCA" | "Projetada" | null;
 }
 
 export interface EngineInput {
@@ -97,12 +99,13 @@ export interface EngineInput {
   /** If true, skip sorting calendario (already sorted) */
   calendarioSorted?: boolean;
   /**
-   * IPCA inputs for Pós Fixado IPCA products.
-   * The engine consumes official records and projections separately so the
-   * daily factor always comes from the anniversary-cycle helper.
+   * IPCA inputs (calendario_ipca). Usado apenas no caminho CDBLIKE
+   * com indexador IPCA. Substitui os antigos `ipcaOficialRecords` /
+   * `ipcaProjecaoRecords`.
    */
-  ipcaOficialRecords?: IpcaRecord[];
-  ipcaProjecaoRecords?: IpcaProjecaoRecord[];
+  calendarioIpcaRecords?: CalendarioIpcaRecord[];
+  /** Engine id resolvida para roteamento (CDBLIKE, ...). Apenas CDBLIKE recebe IPCA. */
+  engine?: string | null;
 }
 
 // ── Pagamento de Juros Periódico ──
@@ -221,13 +224,14 @@ function findDayBefore(dataInicio: string, calendario: EngineInput["calendario"]
 // ── Main engine ──
 
 export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
-  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento, indexador, cdiRecords, dataLimite, precomputedCdiMap, calendarioSorted, ipcaOficialRecords, ipcaProjecaoRecords } = input;
+  const { dataInicio, dataCalculo, taxa, modalidade, puInicial, calendario, movimentacoes, dataResgateTotal, pagamento, vencimento, indexador, cdiRecords, dataLimite, precomputedCdiMap, calendarioSorted, calendarioIpcaRecords, engine } = input;
 
   const cotaInicial = puInicial > 0 ? puInicial : 1000;
   const rawMultiplicador = getMultiplicador(modalidade, taxa);
   const isPosFixadoCDI = (modalidade === "Pos Fixado" || modalidade === "Pós Fixado") && indexador === "CDI";
   const isMistaCDI = modalidade === "Mista" && indexador === "CDI";
-  const isPosFixadoIPCA = (modalidade === "Pos Fixado" || modalidade === "Pós Fixado") && indexador === "IPCA";
+  const isCdbLike = !engine || engine === "CDBLIKE"; // mantém compat para chamadores que não passam engine
+  const isPosFixadoIPCA = isCdbLike && (modalidade === "Pos Fixado" || modalidade === "Pós Fixado") && indexador === "IPCA";
   // Pre-compute fixed spread for Mista: (1+taxa)^(1/252)
   const mistaSpreadFactor = isMistaCDI ? Math.pow(1 + taxa / 100, 1 / 252) : 1;
   // Pre-compute taxa real factor for IPCA: (1+taxa)^(1/252)
@@ -246,20 +250,18 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     }
   }
 
-  // Build IPCA daily factor map.
-  // For CDB/LC/LCI/LCA/LF/LFS/LIG: uses anniversary-cycle methodology with
-  // ANBIMA reference day (15th) — NOT the asset's vencimento day.
-  // The IPCA factor is distributed across business days in the cycle.
-  let ipcaDailyFactorMap: Map<string, number> | null = null;
+  // IPCA daily map (CDBLIKE only): vem de calendario_ipca via helper.
+  let ipcaDailyMap: Map<string, IpcaDailyEntry> | null = null;
   if (isPosFixadoIPCA && vencimento) {
-    ipcaDailyFactorMap = buildIpcaCycleDailyFactorMap(
+    // Aviso A1–A7: efeito colateral controlado dentro do helper.
+    selectTipoTaxaInicial(dataInicio, vencimento, calendarioIpcaRecords ?? [], `${vencimento}|${dataInicio}`);
+    ipcaDailyMap = buildIpcaCdbLikeDailyMap(
       dataInicio,
       dataCalculo || dataInicio,
       vencimento,
       calendario,
-      ipcaOficialRecords ?? [],
-      ipcaProjecaoRecords ?? [],
-      15 // ANBIMA IPCA reference day (15th of each month)
+      calendarioIpcaRecords ?? [],
+      15 // ANBIMA IPCA reference day
     );
   }
 
