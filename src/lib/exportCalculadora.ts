@@ -26,6 +26,7 @@ export function exportIndividualToExcel(rows: DailyRow[], nomeAtivo: string) {
     "R$ Rent. Acumulada": r.ganhoAcumulado,
     "Rent. Acum (2)": r.rentAcumulada2 * 100,
     "% Rent. Acumulada": r.rentabilidadeAcumuladaPct * 100,
+    Taxa: r.taxaIpcaMensalPct ?? "",
     Multiplicador: r.multiplicador,
     "Apoio Cupom": r.apoioCupom,
     "Cupom Acumulado": r.cupomAcumulado,
