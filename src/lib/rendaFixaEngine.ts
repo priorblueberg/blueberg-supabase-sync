@@ -1,4 +1,4 @@
-import { buildIpcaCdbLikeDailyMap, selectTipoTaxaInicial, type CalendarioIpcaRecord, type IpcaDailyEntry } from "@/lib/ipcaHelper";
+import { buildIpcaCdblikeDailyFactorMap, type CalendarioIpcaRecord, type IpcaDailyEntry } from "@/lib/ipcaHelper";
 
 /**
  * Engine de Cálculo Diário de Renda Fixa Prefixada
@@ -232,12 +232,12 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
   const rawMultiplicador = getMultiplicador(modalidade, taxa);
   const isPosFixadoCDI = (modalidade === "Pos Fixado" || modalidade === "Pós Fixado") && indexador === "CDI";
   const isMistaCDI = modalidade === "Mista" && indexador === "CDI";
-  const isCdbLike = !engine || engine === "CDBLIKE"; // mantém compat para chamadores que não passam engine
-  const isPosFixadoIPCA = isCdbLike && (modalidade === "Pos Fixado" || modalidade === "Pós Fixado") && indexador === "IPCA";
+  // CDBLIKE + IPCA: gatilho exclusivo por engine + indexador (sem dependência de modalidade, sem fallback).
+  const isCdbLikeIpca = engine === "CDBLIKE" && indexador === "IPCA";
   // Pre-compute fixed spread for Mista: (1+taxa)^(1/252)
   const mistaSpreadFactor = isMistaCDI ? Math.pow(1 + taxa / 100, 1 / 252) : 1;
   // Pre-compute taxa real factor for IPCA: (1+taxa)^(1/252)
-  const ipcaTaxaRealFactor = isPosFixadoIPCA ? Math.pow(1 + taxa / 100, 1 / 252) : 1;
+  const ipcaTaxaRealFactor = isCdbLikeIpca ? Math.pow(1 + taxa / 100, 1 / 252) : 1;
 
   // Build CDI map: reuse pre-computed if available
   let cdiMap: Map<string, number>;
@@ -252,18 +252,15 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     }
   }
 
-  // IPCA daily map (CDBLIKE only): vem de calendario_ipca via helper.
+  // IPCA daily map (CDBLIKE + IPCA only): vem de calendario_ipca via helper Blueberg.
   let ipcaDailyMap: Map<string, IpcaDailyEntry> | null = null;
-  if (isPosFixadoIPCA && vencimento) {
-    // Aviso A1–A7: efeito colateral controlado dentro do helper.
-    selectTipoTaxaInicial(dataInicio, vencimento, calendarioIpcaRecords ?? [], `${vencimento}|${dataInicio}`);
-    ipcaDailyMap = buildIpcaCdbLikeDailyMap(
+  if (isCdbLikeIpca && vencimento) {
+    ipcaDailyMap = buildIpcaCdblikeDailyFactorMap(
       dataInicio,
       dataCalculo || dataInicio,
       vencimento,
       calendario,
       calendarioIpcaRecords ?? [],
-      15 // ANBIMA IPCA reference day
     );
   }
 

@@ -270,38 +270,6 @@ export function buildIpcaCdblikeDailyFactorMap(
   return result;
 }
 
-// ─── Compat: nome anterior usado pela engine ─────────────────────────
-/**
- * Alias mantido para compatibilidade com `rendaFixaEngine.ts`.
- * Encaminha para `buildIpcaCdblikeDailyFactorMap` ignorando o antigo
- * parâmetro `overrideAnnDay` (aniversário agora vem do vencimento).
- */
-export function buildIpcaCdbLikeDailyMap(
-  dataInicio: string,
-  dataCalculo: string,
-  vencimento: string,
-  calendario: CalEntry[],
-  registros: CalendarioIpcaRecord[],
-  _overrideAnnDay?: number
-): Map<string, IpcaDailyEntry> {
-  return buildIpcaCdblikeDailyFactorMap(dataInicio, dataCalculo, vencimento, calendario, registros);
-}
-
-/**
- * Compat: stub do antigo `selectTipoTaxaInicial`. A decisão agora é por
- * dia em `getTipoTaxaPorDia` / `getRegistroIpcaDaCompetencia`. Mantido
- * apenas para não quebrar imports até a engine ser atualizada.
- */
-export function selectTipoTaxaInicial(
-  dataAplicacao: string,
-  vencimento: string,
-  registros: CalendarioIpcaRecord[],
-  _warnKey?: string
-): "IPCA" | "Projetada" {
-  const idx = buildIpcaIndex(registros);
-  const janela = getJanelaAtual(dataAplicacao, vencimento);
-  return getRegistroIpcaDaCompetencia(janela.competencia, dataAplicacao, idx).tipo;
-}
 
 // ─── Data fetching ───────────────────────────────────────────────────
 
