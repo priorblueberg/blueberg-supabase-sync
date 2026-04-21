@@ -58,7 +58,7 @@ function buildParamHash(params: {
   movsHash: string;
 }): string {
   return [
-    "v7-ipca-fix-leitura", // bump: warn de competência ausente + invalidar caches antigos pós-fix de leitura
+    "v8-engine-aware-ipca", // bump: engine entra na chave para evitar reaproveitar cálculo IPCA sem CDBLIKE
     params.dataInicio,
     params.taxa,
     params.modalidade,

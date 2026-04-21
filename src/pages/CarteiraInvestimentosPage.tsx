@@ -128,7 +128,7 @@ export default function CarteiraInvestimentosPage() {
         const [{ data: custodiaData }, { data: carteirasData }, { data: catMoedasData }] = await Promise.all([
           supabase
             .from("custodia")
-            .select("id, codigo_custodia, nome, data_inicio, data_calculo, data_limite, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, valor_investido, estrategia, quantidade, categoria_id, produto_id, categorias(nome), produtos(nome), instituicoes(nome), emissores(nome)")
+            .select("id, codigo_custodia, nome, data_inicio, data_calculo, data_limite, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, valor_investido, estrategia, quantidade, categoria_id, produto_id, categorias(nome), produtos(nome, engine), instituicoes(nome), emissores(nome)")
             .eq("user_id", user.id),
           supabase
             .from("controle_de_carteiras")
@@ -269,6 +269,7 @@ export default function CarteiraInvestimentosPage() {
             puInicial: product.preco_unitario || 1000,
             pagamento: product.pagamento,
             vencimento: product.vencimento,
+            engine: (product as any).produtos?.engine ?? null,
             indexador: product.indexador,
             dataResgateTotal: product.resgate_total,
             dataLimite: product.data_limite,
@@ -296,7 +297,7 @@ export default function CarteiraInvestimentosPage() {
               precomputedCdiMap: cdiMap,
               calendarioSorted: true,
               calendarioIpcaRecords: product.indexador === "IPCA" ? calendarioIpcaRecords : undefined,
-              engine: (product as any).engine,
+              engine: (product as any).produtos?.engine ?? null,
             });
             cacheRFResult(product.codigo_custodia, fullRows, cacheParams);
             engineRows = getCachedRFResult(product.codigo_custodia, calcEnd, cacheParams) || fullRows;
