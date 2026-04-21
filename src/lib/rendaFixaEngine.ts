@@ -337,12 +337,14 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     // Multiplicador
     let dailyMult: number;
     let tipoTaxaDia: "IPCA" | "Projetada" | null = null;
+    let taxaIpcaMensalPctDia: number | null = null;
     if (isPosFixadoIPCA) {
       // CDBLIKE IPCA: ipcaDailyMap traz o multiplicador diário e o tipoTaxa.
       if (ipcaDailyMap) {
         const entry = ipcaDailyMap.get(cal.data);
         const ipcaFator = entry?.mult ?? 1;
         tipoTaxaDia = entry?.tipoTaxa ?? null;
+        taxaIpcaMensalPctDia = entry?.taxaMensalPct ?? null;
         if (diaUtil) {
           dailyMult = ipcaFator * ipcaTaxaRealFactor - 1;
         } else {
@@ -618,6 +620,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       rentDiariaPct,
       rentAcumulada2,
       tipoTaxa: tipoTaxaDia,
+      taxaIpcaMensalPct: taxaIpcaMensalPctDia,
     });
 
     prevLiquido = liquido1;
@@ -671,5 +674,6 @@ function makeZeroRow(data: string, diaUtil: boolean, cotaInicial: number): Daily
     rentDiariaPct: 0,
     rentAcumulada2: 0,
     tipoTaxa: null,
+    taxaIpcaMensalPct: null,
   };
 }
