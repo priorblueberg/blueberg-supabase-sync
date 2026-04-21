@@ -326,6 +326,7 @@ export default function CarteiraRendaFixaPage() {
           puInicial: product.preco_unitario || 1000,
           pagamento: product.pagamento,
           vencimento: product.vencimento,
+          engine: product.engine,
           indexador: product.indexador,
           dataResgateTotal: product.resgate_total,
           dataLimite: product.data_limite,
