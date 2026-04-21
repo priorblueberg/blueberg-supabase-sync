@@ -1,75 +1,58 @@
 
 
-# Ajuste fino do IPCA CDBLIKE — competência da janela e contagem `(inicio, fim]`
+## Diagnóstico
 
-## Resumo
+Pela rede capturada, a query `GET /calendario_ipca?competencia=gte.2023-11-01&lte.2026-06-01` voltou `[]`. Se a tabela está preenchida no banco, o problema é de **filtro/RLS/permissão de leitura**, não de dado. Sem registros no client, o helper cai no fallback `variacaoMensal = 0` → multiplicador diário = 1 → como a taxa do título é 0%, `dailyMult = 1 * 1 - 1 = 0` todo dia.
 
-Dois ajustes cirúrgicos no helper IPCA, sem mexer no resto da engine, na UI ou em outros indexadores.
+Sobre a regra "taxa = 0 ⇒ 100% IPCA sem taxa adicional": a fórmula atual já faz isso matematicamente. Com `taxa=0`, `ipcaTaxaRealFactor = (1+0)^(1/252) = 1`, então `dailyMult = ipcaFator - 1`, ou seja, exatamente 100% do IPCA. **O bug real é que `ipcaFator` está vindo 1 porque a leitura de `calendario_ipca` retorna vazia.**
 
-## Mudanças
+## Plano
 
-### 1. `getJanelaAtual` — competência alinhada à janela teórica
+### 1. Diagnosticar a leitura de `calendario_ipca`
 
-A competência passa a ser derivada do **aniversário final** da janela (não mais do inicial), refletindo o índice de inflação efetivamente distribuído no ciclo.
+- Rodar `SELECT count(*), min(competencia), max(competencia) FROM calendario_ipca` para confirmar volume e cobertura.
+- Verificar **RLS** da tabela: se houver policy exigindo `user_id = auth.uid()` e os dados forem globais (sem `user_id`), nenhum usuário enxerga. Para tabela de referência de mercado, a policy correta é `SELECT` liberado para `authenticated`.
+- Conferir o range de filtro do helper vs. competências reais (formato `YYYY-MM-01` ok).
 
-Implementação em `src/lib/ipcaHelper.ts`:
+### 2. Corrigir o acesso
 
-- `getJanelaAtual(data, vencimento) → { inicio, fim, competencia }`
-  - `inicio` = último aniversário ≤ `data` (com clamp para o último dia do mês quando o dia do vencimento não existir)
-  - `fim` = próximo aniversário > `data` (mesmo clamp)
-  - `compRefDate = fim - 1 mês`
-  - `competencia = primeiro dia do mês de compRefDate` (`YYYY-MM-01`)
+Dependendo do achado:
+- **Se RLS bloqueia**: criar migration ajustando a policy de `calendario_ipca` para permitir SELECT a qualquer usuário autenticado (dados públicos de mercado).
+- **Se faltam competências** (ex.: faltam meses do período do título 2024-01..2025-12): seed/import dos meses faltantes.
+- **Se filtro do helper exclui registros**: ajustar `fetchCalendarioIpca` (improvável — o range já tem ±2 meses de folga).
 
-Cobertura dos casos críticos:
+### 3. Tornar visível quando IPCA está faltando
 
-- **datas fora do aniversário**: `data` cai numa janela cujo `fim` é o próximo aniversário; competência = mês anterior a esse `fim`
-- **virada de mês**: o `fim` da janela já está no mês seguinte → competência fica corretamente atualizada
-- **datas próximas da divulgação**: a decisão Oficial vs Projetada continua sendo feita por dia em `getRegistroIpcaDaCompetencia`, mas agora sobre a competência correta
+No helper `getRegistroIpcaDaCompetencia`, quando cair no fallback `0%`, emitir `console.warn` único por competência ausente (`[IPCA] competência YYYY-MM ausente — usando 0%`). Isso evita que o mesmo sintoma volte silenciosamente no futuro.
 
-### 2. `countDiasUteisJanela` — intervalo `(inicio, fim]`
+### 4. Confirmar a regra "taxa 0 ⇒ 100% IPCA"
 
-Função pura única, usada para cálculo do divisor e auditoria:
+Manter a fórmula atual em `rendaFixaEngine.ts`:
+```
+ipcaTaxaRealFactor = (1 + taxa/100)^(1/252)
+dailyMult = ipcaFator * ipcaTaxaRealFactor - 1
+```
+Com `taxa=0` isso já entrega exatamente o IPCA do dia. Nenhuma alteração de fórmula é necessária — só validar via QA depois do dado voltar.
 
-- excluir aniversário inicial: `data > janela.inicio`
-- incluir aniversário final: `data <= janela.fim`
-- considerar apenas `dia_util === true`
+### 5. Forçar recálculo
 
-### 3. `buildIpcaCdblikeDailyFactorMap` — propagar mudanças
+Bump de versão em `engineCache.ts` para invalidar resultados em cache (`v6-ipca-competencia-fim` → `v7-ipca-fix-leitura`) e re-render da Calculadora/Posição Consolidada.
 
-Para cada dia útil em `[dataInicio, dataCalculo]`:
+## QA pós-correção
 
-- `janela = getJanelaAtual(data, vencimento)`
-- `divisor = countDiasUteisJanela(janela, calendario)` — cacheado por `${janela.inicio}|${janela.fim}`
-- `{ tipo, variacaoMensal } = getRegistroIpcaDaCompetencia(janela.competencia, data, index)` — reavaliado por dia (sem look-ahead)
-- `mult = (1 + variacaoMensal/100)^(1/divisor)`
-- `tipoTaxa = tipo`, `taxaMensalPct = variacaoMensal`
+- Abrir o título "CDB Banco Andbank Brasil IPCA + 0,00%" na Calculadora.
+- Conferir que a coluna **Tipo Taxa** alterna entre `Projetada` e `IPCA` ao longo dos meses.
+- Conferir que a coluna **% IPCA mês** mostra a variação real da competência vigente (não 0%).
+- Conferir que a **Rentabilidade Acumulada** ≈ IPCA acumulado do período (sem spread).
+- Conferir que CDI e Prefixado continuam idênticos (sem regressão).
 
-Dia não útil:
+## Detalhes técnicos
 
-- `mult = 1`, `tipoTaxa = null`, `taxaMensalPct = null`
+- Arquivos tocados: migration SQL para policy de `calendario_ipca` (se for o caso), `src/lib/ipcaHelper.ts` (warn de competência ausente), `src/lib/engineCache.ts` (bump de versão).
+- Escopo isolado a CDBLIKE + IPCA — CDI e Prefixado intactos.
+- A regra de taxa zero não exige mudança de código: já é consequência direta de `(1+0)^(1/252) = 1`.
 
-### 4. `engineCache.ts`
+## Pergunta antes de implementar
 
-Bump para `v6-ipca-competencia-fim` para forçar recálculo limpo da Carteira RF e Posição Consolidada.
-
-## Itens fora do escopo
-
-- `rendaFixaEngine.ts` e `CalculadoraTable.tsx`: assinatura externa do helper se mantém — sem mudanças.
-- CDI, Prefixado, Poupança, Câmbio, Proventos.
-- Estrutura da `calendario_ipca` e jobs de ingestão.
-
-## Detalhes técnicos relevantes
-
-- **Chave de cache da janela**: `${janela.inicio}|${janela.fim}` (não mais `lastAnniversary|competencia`), refletindo que o divisor depende exclusivamente da janela.
-- **Sem look-ahead preservado**: Oficial só é usada quando `dataLinha >= data_divulgacao_oficial`; senão Projetada.
-- **Tipo por dia**: o tipo (`IPCA`/`Projetada`) é reavaliado a cada dia mesmo dentro da mesma janela, capturando a virada Projetada → Oficial na divulgação.
-
-## QA pós-implementação
-
-- Vencimento dia 11, data 03/mar: janela = `(11/fev, 11/mar]`, competência = `2024-02`.
-- Vencimento dia 11, data 12/mar: janela = `(11/mar, 11/abr]`, competência = `2024-03`.
-- Vencimento dia 31, mês com 30 dias: aniversário cai no dia 30; competência segue a regra do `fim`.
-- Aplicação em 20/mai com vencimento dia 5: janela vigente = `(05/mai, 05/jun]`, competência = `2024-05`.
-- Auditar janela com 22 dias úteis: divisor = 22 exato.
-- Confirmar que `Tipo Taxa` na Calculadora alterna corretamente em torno da data de divulgação da competência vigente.
+Para escolher a correção certa do passo 2, preciso confirmar **uma coisa**:
 
