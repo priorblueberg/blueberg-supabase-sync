@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { fullSyncAfterMovimentacao } from "@/lib/syncEngine";
 import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
+import { fetchCalendarioIpca } from "@/lib/ipcaHelper";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
@@ -405,11 +406,16 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
         const calendario = calRes.data || [];
         const movimentacoes = (movRes.data || []).map((m: any) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: Number(m.valor) }));
         const cdiRecords = isPosFixadoCDI && cdiRes ? ((cdiRes as any).data || []).map((r: any) => ({ data: r.data, taxa_anual: Number(r.taxa_anual) })) : undefined;
+        // CDBLIKE + IPCA: precisa do calendário IPCA para o helper Blueberg.
+        const calendarioIpcaRecords = engineIndexador === "IPCA"
+          ? await fetchCalendarioIpca("IPCA", selectedCustodia.data_inicio, selectedCustodia.vencimento || dateISO)
+          : undefined;
         const rows = calcularRendaFixaDiario({
           dataInicio: selectedCustodia.data_inicio, dataCalculo: dateISO, taxa: selectedCustodia.taxa!,
           modalidade: engineModalidade, puInicial: selectedCustodia.preco_unitario!, calendario, movimentacoes,
           dataResgateTotal: custRes.data?.resgate_total ?? null, pagamento: selectedCustodia.pagamento,
           vencimento: selectedCustodia.vencimento, indexador: engineIndexador, cdiRecords,
+          calendarioIpcaRecords,
           engine: "CDBLIKE",
         });
         let targetRow = rows.find((r) => r.data === dateISO);
