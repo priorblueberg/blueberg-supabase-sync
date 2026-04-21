@@ -972,6 +972,7 @@ export async function reprocessMovimentacoesForCodigo(
     pagamento: aplicacaoInicial.pagamento,
     vencimento: aplicacaoInicial.vencimento,
   };
+  const produtoEngine = await fetchProdutoEngine(aplicacaoInicial.produto_id);
 
   // 4. Get the full calendar range needed
   const lastDate = sourceMovs[sourceMovs.length - 1].data;
@@ -1013,7 +1014,7 @@ export async function reprocessMovimentacoesForCodigo(
     cdiRecords: cdiRecordsReprocess,
     calendarioIpcaRecords: calendarioIpcaRecordsReprocess,
     calendarioSorted: true,
-    engine: "CDBLIKE",
+    engine: produtoEngine,
   });
 
   // Build date-indexed map for O(1) lookups
