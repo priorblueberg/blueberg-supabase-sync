@@ -1,59 +1,75 @@
 
 
-# Refactor IPCA → calendario_ipca (CDBLIKE)
+# Ajuste fino do IPCA CDBLIKE — competência da janela e contagem `(inicio, fim]`
 
-## Escopo
+## Resumo
 
-Substituir `historico_ipca` + `historico_ipca_projecao` por `calendario_ipca` no caminho `engine = CDBLIKE` + `indexador = IPCA`. Sem look-ahead. Nova coluna `Tipo_Taxa` (`IPCA` | `Projetada`) na Calculadora individual.
+Dois ajustes cirúrgicos no helper IPCA, sem mexer no resto da engine, na UI ou em outros indexadores.
 
-## Premissas
+## Mudanças
 
-- `calendario_ipca` já existe e populada (colunas: `data`, `tipo`, `competencia`, `variacao_mensal`).
-- Tabelas legadas saem do código (DROP manual depois).
-- Outras engines, Proventos, e `daily-market-sync` não são tocados.
+### 1. `getJanelaAtual` — competência alinhada à janela teórica
 
-## Mudanças por arquivo
+A competência passa a ser derivada do **aniversário final** da janela (não mais do inicial), refletindo o índice de inflação efetivamente distribuído no ciclo.
 
-**`src/lib/ipcaHelper.ts`** (reescrita parcial)
-- Novo tipo `CalendarioIpcaRecord { data, tipo: 'Oficial'|'Projetada', competencia, variacao_mensal }`.
-- `fetchCalendarioIpca(dataInicio, dataFim)` e `fetchCalendarioIpcaBatch(products, dataFim)` lendo `calendario_ipca` (±2 meses na competência).
-- `computeJanelaTeorica(dataAplicacao, vencimento) → ISO date` (3 regras com `clampDay`).
-- `selectTipoTaxaInicial(dataAplicacao, vencimento, calIpca) → 'IPCA' | 'Projetada'`:
-  - `dia_aplicacao = dia_vencimento`: regra do enunciado item 5 (≥15 → Projetada; senão IPCA antes da divulgação, Projetada após).
-  - `dia_aplicacao ≠ dia_vencimento`: **fallback temporário** — se existir Oficial da competência vigente e `data_linha >= data_divulgacao_oficial` → `IPCA`; senão `Projetada`. Emite `console.warn("[IPCA] Regras A1–A7 não implementadas — usando fallback temporário")` uma vez por produto.
-- `buildIpcaCdbLikeDailyMap(dataInicio, dataCalculo, vencimento, calendario, calIpca) → Map<date, { mult, tipoTaxa }>`:
-  - Para cada dia útil, identifica competência via JanelaTeorica.
-  - Decide `tipoTaxa` pela mesma regra de seleção (Oficial se `data_linha >= data_divulgação_oficial`, senão Projetada).
-  - Distribui `variacao_mensal` pelos dias úteis do ciclo (mecânica equivalente à atual `buildIpcaCdbDailyMultMap`).
-- **Remove** `buildIpcaCdbDailyMultMap`, `buildIpcaCycleDailyFactorMap`, `selectIpcaFactor`, `fetchIpcaRecords`, `fetchIpcaRecordsBatch`, tipos `IpcaRecord`/`IpcaProjecaoRecord`.
+Implementação em `src/lib/ipcaHelper.ts`:
 
-**`src/lib/rendaFixaEngine.ts`**
-- `EngineInput`: troca `ipcaOficialRecords`+`ipcaProjecaoRecords` por `calendarioIpcaRecords?: CalendarioIpcaRecord[]`.
-- `DailyRow`: adiciona `tipoTaxa?: 'IPCA' | 'Projetada' | null`.
-- Caminho `isPosFixadoIPCA` chama `buildIpcaCdbLikeDailyMap` apenas quando `engine === 'CDBLIKE'`; popula `tipoTaxa` no row.
+- `getJanelaAtual(data, vencimento) → { inicio, fim, competencia }`
+  - `inicio` = último aniversário ≤ `data` (com clamp para o último dia do mês quando o dia do vencimento não existir)
+  - `fim` = próximo aniversário > `data` (mesmo clamp)
+  - `compRefDate = fim - 1 mês`
+  - `competencia = primeiro dia do mês de compRefDate` (`YYYY-MM-01`)
 
-**`src/lib/engines/registry.ts`** — garantir que `engine` está sendo passado no input.
+Cobertura dos casos críticos:
 
-**`src/components/CalculadoraTable.tsx`** — nova coluna `Tipo Taxa` após `Multiplicador` mostrando `r.tipoTaxa ?? "—"`.
+- **datas fora do aniversário**: `data` cai numa janela cujo `fim` é o próximo aniversário; competência = mês anterior a esse `fim`
+- **virada de mês**: o `fim` da janela já está no mês seguinte → competência fica corretamente atualizada
+- **datas próximas da divulgação**: a decisão Oficial vs Projetada continua sendo feita por dia em `getRegistroIpcaDaCompetencia`, mas agora sobre a competência correta
 
-**Call-sites** (substituir fetch + parâmetros):
-- `src/pages/AnaliseIndividualPage.tsx`
-- `src/pages/CarteiraInvestimentosPage.tsx`
-- `src/lib/syncEngine.ts`
-- Qualquer outra referência a `fetchIpcaRecords`/`ipcaOficialRecords`.
+### 2. `countDiasUteisJanela` — intervalo `(inicio, fim]`
 
-**`src/lib/engineCache.ts`** — bump de versão para invalidar cache RF.
+Função pura única, usada para cálculo do divisor e auditoria:
 
-**`src/integrations/supabase/types.ts`** — adicionar tipagem de `calendario_ipca`. Tipos das tabelas legadas permanecem.
+- excluir aniversário inicial: `data > janela.inicio`
+- incluir aniversário final: `data <= janela.fim`
+- considerar apenas `dia_util === true`
 
-## Fallback A1–A7
+### 3. `buildIpcaCdblikeDailyFactorMap` — propagar mudanças
 
-Função `selectTipoTaxaInicial` no caso `dia_aplicacao ≠ dia_vencimento` usa: **Oficial se `data_linha >= data_divulgacao_oficial`, senão Projetada**, com `console.warn` único por produto. Trocar pela regra definitiva quando a spec A1–A7 chegar.
+Para cada dia útil em `[dataInicio, dataCalculo]`:
+
+- `janela = getJanelaAtual(data, vencimento)`
+- `divisor = countDiasUteisJanela(janela, calendario)` — cacheado por `${janela.inicio}|${janela.fim}`
+- `{ tipo, variacaoMensal } = getRegistroIpcaDaCompetencia(janela.competencia, data, index)` — reavaliado por dia (sem look-ahead)
+- `mult = (1 + variacaoMensal/100)^(1/divisor)`
+- `tipoTaxa = tipo`, `taxaMensalPct = variacaoMensal`
+
+Dia não útil:
+
+- `mult = 1`, `tipoTaxa = null`, `taxaMensalPct = null`
+
+### 4. `engineCache.ts`
+
+Bump para `v6-ipca-competencia-fim` para forçar recálculo limpo da Carteira RF e Posição Consolidada.
+
+## Itens fora do escopo
+
+- `rendaFixaEngine.ts` e `CalculadoraTable.tsx`: assinatura externa do helper se mantém — sem mudanças.
+- CDI, Prefixado, Poupança, Câmbio, Proventos.
+- Estrutura da `calendario_ipca` e jobs de ingestão.
+
+## Detalhes técnicos relevantes
+
+- **Chave de cache da janela**: `${janela.inicio}|${janela.fim}` (não mais `lastAnniversary|competencia`), refletindo que o divisor depende exclusivamente da janela.
+- **Sem look-ahead preservado**: Oficial só é usada quando `dataLinha >= data_divulgacao_oficial`; senão Projetada.
+- **Tipo por dia**: o tipo (`IPCA`/`Projetada`) é reavaliado a cada dia mesmo dentro da mesma janela, capturando a virada Projetada → Oficial na divulgação.
 
 ## QA pós-implementação
 
-- Smoke test em CDBLIKE IPCA com `dia_aplicacao = dia_vencimento` (regra definitiva).
-- Smoke test em CDBLIKE IPCA com `dia_aplicacao ≠ dia_vencimento` (fallback) — confirmar warning no console.
-- Conferir nova coluna `Tipo Taxa` na Calculadora.
-- Carteira RF e Posição Consolidada devem manter os valores.
+- Vencimento dia 11, data 03/mar: janela = `(11/fev, 11/mar]`, competência = `2024-02`.
+- Vencimento dia 11, data 12/mar: janela = `(11/mar, 11/abr]`, competência = `2024-03`.
+- Vencimento dia 31, mês com 30 dias: aniversário cai no dia 30; competência segue a regra do `fim`.
+- Aplicação em 20/mai com vencimento dia 5: janela vigente = `(05/mai, 05/jun]`, competência = `2024-05`.
+- Auditar janela com 22 dias úteis: divisor = 22 exato.
+- Confirmar que `Tipo Taxa` na Calculadora alterna corretamente em torno da data de divulgação da competência vigente.
 
