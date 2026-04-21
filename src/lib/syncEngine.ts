@@ -52,7 +52,20 @@ type SyncCustodiaBase = {
   indexador: string | null;
   nome: string | null;
   preco_unitario: number | null;
+  /** Engine resolvida do produto (CDBLIKE, POUPANCA, ...). Necessário para roteamento IPCA. */
+  engine?: string | null;
 };
+
+/** Busca a engine cadastrada no produto (cacheável). */
+async function fetchProdutoEngine(produtoId: string | null | undefined): Promise<string | null> {
+  if (!produtoId) return null;
+  const { data } = await supabase
+    .from("produtos")
+    .select("engine")
+    .eq("id", produtoId)
+    .maybeSingle();
+  return (data as any)?.engine ?? null;
+}
 
 function formatValorExtrato(valor: number, precoUnitario: number, quantidade: number) {
   const fmtBR = (v: number) =>
