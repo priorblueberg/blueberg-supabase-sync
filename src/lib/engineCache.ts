@@ -58,7 +58,7 @@ function buildParamHash(params: {
   movsHash: string;
 }): string {
   return [
-    "v8-engine-aware-ipca", // bump: engine entra na chave para evitar reaproveitar cálculo IPCA sem CDBLIKE
+    "v9-ipca-competencia-inicio", // bump: competência da janela = mês anterior ao INÍCIO (modelo Blueberg)
     params.dataInicio,
     params.taxa,
     params.modalidade,
