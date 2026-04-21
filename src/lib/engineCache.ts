@@ -51,6 +51,7 @@ function buildParamHash(params: {
   puInicial: number;
   pagamento?: string | null;
   vencimento?: string | null;
+  engine?: string | null;
   indexador?: string | null;
   dataResgateTotal?: string | null;
   dataLimite?: string | null;
@@ -64,6 +65,7 @@ function buildParamHash(params: {
     params.puInicial,
     params.pagamento || "",
     params.vencimento || "",
+    params.engine || "",
     params.indexador || "",
     params.dataResgateTotal || "",
     params.dataLimite || "",
@@ -117,6 +119,7 @@ export function cacheRFResult(
     puInicial: number;
     pagamento?: string | null;
     vencimento?: string | null;
+    engine?: string | null;
     indexador?: string | null;
     dataResgateTotal?: string | null;
     dataLimite?: string | null;
@@ -148,6 +151,7 @@ export function getCachedRFResult(
     puInicial: number;
     pagamento?: string | null;
     vencimento?: string | null;
+    engine?: string | null;
     indexador?: string | null;
     dataResgateTotal?: string | null;
     dataLimite?: string | null;
@@ -192,6 +196,7 @@ export function getFullCachedRFResult(
     puInicial: number;
     pagamento?: string | null;
     vencimento?: string | null;
+    engine?: string | null;
     indexador?: string | null;
     dataResgateTotal?: string | null;
     dataLimite?: string | null;
