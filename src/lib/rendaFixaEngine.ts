@@ -78,6 +78,8 @@ export interface DailyRow {
   rentAcumulada2: number;
   /** Tipo de taxa IPCA usada nesse dia (somente CDBLIKE+IPCA, dia útil). */
   tipoTaxa?: "IPCA" | "Projetada" | null;
+  /** Variação mensal (%) da competência IPCA aplicada nesse dia (CDBLIKE+IPCA). */
+  taxaIpcaMensalPct?: number | null;
 }
 
 export interface EngineInput {
