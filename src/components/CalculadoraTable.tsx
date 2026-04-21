@@ -38,6 +38,7 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted bg-blue-50 dark:bg-blue-950">Rent. Acum (2)</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">% Rent. Acumulada</TableHead>
             
+            <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Taxa</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-right bg-muted">Multiplicador</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-center bg-muted">Tipo Taxa</TableHead>
             <TableHead className="text-xs whitespace-nowrap text-center bg-muted">Pgto Juros</TableHead>
@@ -99,6 +100,9 @@ export default function CalculadoraTable({ rows, pagamento, dataResgateTotal }: 
                 {Math.abs(r.rentabilidadeAcumuladaPct) > 0.00001
                   ? `${(r.rentabilidadeAcumuladaPct * 100).toFixed(2)}%`
                   : "—"}
+              </TableCell>
+              <TableCell className="text-xs text-right font-mono">
+                {r.taxaIpcaMensalPct != null ? `${r.taxaIpcaMensalPct.toFixed(4)}%` : "—"}
               </TableCell>
               <TableCell className="text-xs text-right font-mono">
                 {r.multiplicador > 0 ? r.multiplicador.toFixed(8) : "—"}
