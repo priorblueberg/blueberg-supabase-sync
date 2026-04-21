@@ -9,6 +9,7 @@ import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
 import { fetchCalendarioIpca } from "@/lib/ipcaHelper";
 import { invalidateEngineCache } from "@/lib/engineCache";
 import { getDiaAniversarioPoupanca } from "@/lib/poupancaEngine";
+import { getEngineId, type EngineId } from "@/lib/engines/registry";
 
 /** Fetch CDI records if the product uses CDI indexador */
 async function fetchCdiIfNeeded(
@@ -53,18 +54,18 @@ type SyncCustodiaBase = {
   nome: string | null;
   preco_unitario: number | null;
   /** Engine resolvida do produto (CDBLIKE, POUPANCA, ...). Necessário para roteamento IPCA. */
-  engine?: string | null;
+  engine?: EngineId | null;
 };
 
 /** Busca a engine cadastrada no produto (cacheável). */
-async function fetchProdutoEngine(produtoId: string | null | undefined): Promise<string | null> {
+async function fetchProdutoEngine(produtoId: string | null | undefined): Promise<EngineId | null> {
   if (!produtoId) return null;
   const { data } = await supabase
     .from("produtos")
     .select("engine")
     .eq("id", produtoId)
     .maybeSingle();
-  return (data as any)?.engine ?? null;
+  return getEngineId({ engine: (data as any)?.engine ?? null });
 }
 
 function formatValorExtrato(valor: number, precoUnitario: number, quantidade: number) {
