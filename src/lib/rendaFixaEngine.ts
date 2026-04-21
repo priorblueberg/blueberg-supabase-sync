@@ -335,7 +335,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
     let dailyMult: number;
     let tipoTaxaDia: "IPCA" | "Projetada" | null = null;
     let taxaIpcaMensalPctDia: number | null = null;
-    if (isPosFixadoIPCA) {
+    if (isCdbLikeIpca) {
       // CDBLIKE IPCA: ipcaDailyMap traz o multiplicador diário e o tipoTaxa.
       if (ipcaDailyMap) {
         const entry = ipcaDailyMap.get(cal.data);
@@ -402,7 +402,7 @@ export function calcularRendaFixaDiario(input: EngineInput): DailyRow[] {
       // Reset to initial PU on payment days (including "No Vencimento" final day)
       precoUnitario = puInicialCustodia;
     } else {
-      const puMult = (isMistaCDI || isPosFixadoCDI || isPosFixadoIPCA) ? dailyMult : rawMultiplicador;
+      const puMult = (isMistaCDI || isPosFixadoCDI || isCdbLikeIpca) ? dailyMult : rawMultiplicador;
       precoUnitario = prevPrecoUnitario * puMult + prevPrecoUnitario;
     }
 
