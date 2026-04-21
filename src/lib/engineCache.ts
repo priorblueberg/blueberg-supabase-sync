@@ -51,19 +51,21 @@ function buildParamHash(params: {
   puInicial: number;
   pagamento?: string | null;
   vencimento?: string | null;
+  engine?: string | null;
   indexador?: string | null;
   dataResgateTotal?: string | null;
   dataLimite?: string | null;
   movsHash: string;
 }): string {
   return [
-    "v7-ipca-fix-leitura", // bump: warn de competência ausente + invalidar caches antigos pós-fix de leitura
+    "v8-engine-aware-ipca", // bump: engine entra na chave para evitar reaproveitar cálculo IPCA sem CDBLIKE
     params.dataInicio,
     params.taxa,
     params.modalidade,
     params.puInicial,
     params.pagamento || "",
     params.vencimento || "",
+    params.engine || "",
     params.indexador || "",
     params.dataResgateTotal || "",
     params.dataLimite || "",
@@ -117,6 +119,7 @@ export function cacheRFResult(
     puInicial: number;
     pagamento?: string | null;
     vencimento?: string | null;
+    engine?: string | null;
     indexador?: string | null;
     dataResgateTotal?: string | null;
     dataLimite?: string | null;
@@ -148,6 +151,7 @@ export function getCachedRFResult(
     puInicial: number;
     pagamento?: string | null;
     vencimento?: string | null;
+    engine?: string | null;
     indexador?: string | null;
     dataResgateTotal?: string | null;
     dataLimite?: string | null;
@@ -192,6 +196,7 @@ export function getFullCachedRFResult(
     puInicial: number;
     pagamento?: string | null;
     vencimento?: string | null;
+    engine?: string | null;
     indexador?: string | null;
     dataResgateTotal?: string | null;
     dataLimite?: string | null;
