@@ -144,7 +144,7 @@ async function syncManualResgatesTotais(
         indexador: custodiaRecord.indexador,
         cdiRecords,
         calendarioIpcaRecords,
-        engine: custodiaRecord.engine ?? null,
+        engine: "CDBLIKE",
       });
 
       const rowDia = rows[rows.length - 1];
@@ -266,7 +266,7 @@ async function syncResgateNoVencimento(
       indexador: custodiaRecord.indexador,
       cdiRecords,
       calendarioIpcaRecords,
-      engine: custodiaRecord.engine ?? null,
+      engine: "CDBLIKE",
     });
 
     if (rows.length === 0) return;
@@ -1012,7 +1012,7 @@ export async function reprocessMovimentacoesForCodigo(
     cdiRecords: cdiRecordsReprocess,
     calendarioIpcaRecords: calendarioIpcaRecordsReprocess,
     calendarioSorted: true,
-    engine: await fetchProdutoEngine(aplicacaoInicial.produto_id),
+    engine: "CDBLIKE",
   });
 
   // Build date-indexed map for O(1) lookups
