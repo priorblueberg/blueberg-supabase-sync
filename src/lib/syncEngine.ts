@@ -52,7 +52,20 @@ type SyncCustodiaBase = {
   indexador: string | null;
   nome: string | null;
   preco_unitario: number | null;
+  /** Engine resolvida do produto (CDBLIKE, POUPANCA, ...). Necessário para roteamento IPCA. */
+  engine?: string | null;
 };
+
+/** Busca a engine cadastrada no produto (cacheável). */
+async function fetchProdutoEngine(produtoId: string | null | undefined): Promise<string | null> {
+  if (!produtoId) return null;
+  const { data } = await supabase
+    .from("produtos")
+    .select("engine")
+    .eq("id", produtoId)
+    .maybeSingle();
+  return (data as any)?.engine ?? null;
+}
 
 function formatValorExtrato(valor: number, precoUnitario: number, quantidade: number) {
   const fmtBR = (v: number) =>
@@ -131,6 +144,7 @@ async function syncManualResgatesTotais(
         indexador: custodiaRecord.indexador,
         cdiRecords,
         calendarioIpcaRecords,
+        engine: custodiaRecord.engine ?? null,
       });
 
       const rowDia = rows[rows.length - 1];
@@ -252,6 +266,7 @@ async function syncResgateNoVencimento(
       indexador: custodiaRecord.indexador,
       cdiRecords,
       calendarioIpcaRecords,
+      engine: custodiaRecord.engine ?? null,
     });
 
     if (rows.length === 0) return;
@@ -656,6 +671,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
 
   // Sync manual "Resgate Total" values created by the "Fechar Posição" flow (RF non-poupança, non-moedas only)
   if (isRendaFixa && !isPoupanca && !isMoedas) {
+    const produtoEngine = await fetchProdutoEngine(aplicacaoInicial.produto_id);
     await syncManualResgatesTotais(mov.codigo_custodia, mov.user_id!, {
       vencimento: aplicacaoInicial.vencimento,
       resgate_total: resgateTotal,
@@ -670,6 +686,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
       indexador: aplicacaoInicial.indexador,
       nome: aplicacaoInicial.nome_ativo,
       preco_unitario: aplicacaoInicial.preco_unitario,
+      engine: produtoEngine,
     });
 
     // Sync automatic "Resgate no Vencimento"
@@ -687,6 +704,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
       indexador: aplicacaoInicial.indexador,
       nome: aplicacaoInicial.nome_ativo,
       preco_unitario: aplicacaoInicial.preco_unitario,
+      engine: produtoEngine,
     });
   }
 
@@ -994,6 +1012,7 @@ export async function reprocessMovimentacoesForCodigo(
     cdiRecords: cdiRecordsReprocess,
     calendarioIpcaRecords: calendarioIpcaRecordsReprocess,
     calendarioSorted: true,
+    engine: await fetchProdutoEngine(aplicacaoInicial.produto_id),
   });
 
   // Build date-indexed map for O(1) lookups
