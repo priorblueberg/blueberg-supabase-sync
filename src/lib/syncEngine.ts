@@ -144,6 +144,7 @@ async function syncManualResgatesTotais(
         indexador: custodiaRecord.indexador,
         cdiRecords,
         calendarioIpcaRecords,
+        engine: custodiaRecord.engine ?? null,
       });
 
       const rowDia = rows[rows.length - 1];
@@ -265,6 +266,7 @@ async function syncResgateNoVencimento(
       indexador: custodiaRecord.indexador,
       cdiRecords,
       calendarioIpcaRecords,
+      engine: custodiaRecord.engine ?? null,
     });
 
     if (rows.length === 0) return;
@@ -1007,6 +1009,7 @@ export async function reprocessMovimentacoesForCodigo(
     cdiRecords: cdiRecordsReprocess,
     calendarioIpcaRecords: calendarioIpcaRecordsReprocess,
     calendarioSorted: true,
+    engine: await fetchProdutoEngine(aplicacaoInicial.produto_id),
   });
 
   // Build date-indexed map for O(1) lookups
