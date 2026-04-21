@@ -57,7 +57,7 @@ function buildParamHash(params: {
   movsHash: string;
 }): string {
   return [
-    "v6-ipca-competencia-fim", // bump: competência da janela = mês anterior ao FIM; contagem dias úteis em (inicio, fim]
+    "v7-ipca-fix-leitura", // bump: warn de competência ausente + invalidar caches antigos pós-fix de leitura
     params.dataInicio,
     params.taxa,
     params.modalidade,
