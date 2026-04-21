@@ -32,7 +32,7 @@ const menuItems: MenuItem[] = [
   
   { title: "Configurações", url: "/configuracoes", icon: Settings },
   { title: "Admin", url: "/admin", icon: Shield, adminOnly: true },
-  { title: "Calculadora", url: "/calculadora", icon: Calculator, adminOnly: true },
+  { title: "Calculadora", url: "/calculadora", icon: Calculator },
 ];
 
 export function AppSidebar({
