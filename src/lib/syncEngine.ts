@@ -145,7 +145,7 @@ async function syncManualResgatesTotais(
         indexador: custodiaRecord.indexador,
         cdiRecords,
         calendarioIpcaRecords,
-        engine: "CDBLIKE",
+        engine: custodiaRecord.engine,
       });
 
       const rowDia = rows[rows.length - 1];
@@ -267,7 +267,7 @@ async function syncResgateNoVencimento(
       indexador: custodiaRecord.indexador,
       cdiRecords,
       calendarioIpcaRecords,
-      engine: "CDBLIKE",
+      engine: custodiaRecord.engine,
     });
 
     if (rows.length === 0) return;
