@@ -261,6 +261,8 @@ export interface IpcaDailyEntry {
   mult: number;
   /** Tipo da taxa que originou este dia. */
   tipoTaxa: "IPCA" | "Projetada" | null;
+  /** Variação mensal (%) da competência IPCA aplicada nesse dia (fator - 1) * 100. */
+  taxaMensalPct?: number | null;
 }
 
 /**
@@ -299,7 +301,7 @@ export function buildIpcaCdbLikeDailyMap(
     if (cal.data < dataInicio || cal.data > dataCalculo) continue;
 
     if (!cal.dia_util) {
-      result.set(cal.data, { mult: 1, tipoTaxa: null });
+      result.set(cal.data, { mult: 1, tipoTaxa: null, taxaMensalPct: null });
       continue;
     }
 
@@ -325,7 +327,8 @@ export function buildIpcaCdbLikeDailyMap(
     }
 
     const dailyFactor = Math.pow(cycleInfo.fator, 1 / cycleInfo.divisor);
-    result.set(cal.data, { mult: dailyFactor, tipoTaxa: cycleInfo.tipoTaxa });
+    const taxaMensalPct = (cycleInfo.fator - 1) * 100;
+    result.set(cal.data, { mult: dailyFactor, tipoTaxa: cycleInfo.tipoTaxa, taxaMensalPct });
   }
 
   return result;
