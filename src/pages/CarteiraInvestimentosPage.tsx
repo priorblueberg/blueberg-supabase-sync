@@ -126,7 +126,7 @@ export default function CarteiraInvestimentosPage() {
       try {
         // 1. Fetch all custodia + carteiras info
         const [{ data: custodiaData }, { data: carteirasData }, { data: catMoedasData }] = await Promise.all([
-          supabase
+          (supabase as any)
             .from("custodia")
             .select("id, codigo_custodia, nome, data_inicio, data_calculo, data_limite, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, valor_investido, estrategia, quantidade, categoria_id, produto_id, categorias(nome), produtos(nome, engine), instituicoes(nome), emissores(nome)")
             .eq("user_id", user.id),
