@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type Context, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { resetAllAppCaches } from "@/lib/resetCaches";
 import { queryClient } from "@/lib/queryClient";
@@ -14,7 +14,13 @@ interface AuthContextType {
   refreshCustodia: () => Promise<boolean | null>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const globalForAuth = globalThis as typeof globalThis & {
+  __bluebergAuthContext?: Context<AuthContextType | null>;
+};
+
+const AuthContext =
+  globalForAuth.__bluebergAuthContext ??
+  (globalForAuth.__bluebergAuthContext = createContext<AuthContextType | null>(null));
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -144,10 +150,3 @@ export const useAuth = () => {
 
   return context;
 };
-
-// HMR: força reload completo deste módulo para evitar duas instâncias
-// de `AuthContext` (que causariam "useAuth must be used within AuthProvider").
-if (import.meta.hot) {
-  import.meta.hot.invalidate();
-}
-
