@@ -65,6 +65,7 @@ export async function calcSaldoPrefixado(
     dataResgateTotal: custData?.resgate_total ?? null,
     pagamento: finalPagamento,
     vencimento: finalVencimento,
+    engine: "CDBLIKE",
   });
 
   if (rows.length === 0) return 0;

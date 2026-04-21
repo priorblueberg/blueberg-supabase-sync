@@ -410,6 +410,7 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
           modalidade: engineModalidade, puInicial: selectedCustodia.preco_unitario!, calendario, movimentacoes,
           dataResgateTotal: custRes.data?.resgate_total ?? null, pagamento: selectedCustodia.pagamento,
           vencimento: selectedCustodia.vencimento, indexador: engineIndexador, cdiRecords,
+          engine: "CDBLIKE",
         });
         let targetRow = rows.find((r) => r.data === dateISO);
         if (!targetRow && rows.length > 0) {
