@@ -57,7 +57,7 @@ function buildParamHash(params: {
   movsHash: string;
 }): string {
   return [
-    "v3-ipca-taxa", // bump: nova coluna Taxa (variação mensal IPCA) em DailyRow
+    "v6-ipca-competencia-fim", // bump: competência da janela = mês anterior ao FIM; contagem dias úteis em (inicio, fim]
     params.dataInicio,
     params.taxa,
     params.modalidade,

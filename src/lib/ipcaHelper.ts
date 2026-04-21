@@ -1,26 +1,14 @@
 /**
  * IPCA Helper — fonte única: tabela `calendario_ipca`.
  *
- * Esta versão substitui o uso das tabelas legadas `historico_ipca` e
- * `historico_ipca_projecao`. Toda decisão sobre Oficial vs Projetada
- * agora vem da `calendario_ipca` (colunas: data, tipo, competencia,
- * variacao_mensal).
- *
- * Conceito de `calendario_ipca`:
- *  - tipo = 'Oficial':   `data` é a data de divulgação oficial
- *                         (= "data_divulgacao_oficial"), `competencia`
- *                         é o mês de referência do índice.
- *  - tipo = 'Projetada': `data` é a data em que aquela projeção valeu
- *                         (não usada na decisão atual), `competencia`
- *                         é o mês projetado.
- *
- * Conversão de variação para fator: fator = 1 + variacao_mensal/100.
+ * Modelo do simulador Blueberg para CDBLIKE + IPCA:
+ *   - Aniversário do título = dia do vencimento (clamp ao último dia do mês).
+ *   - Janela = intervalo (aniv_inicio, aniv_fim] entre dois aniversários consecutivos.
+ *   - Competência da janela = mês imediatamente anterior ao `fim` da janela.
+ *   - Decisão Oficial vs Projetada por dia, sem look-ahead.
+ *   - fator_diario = (1 + variacao_mensal/100) ^ (1 / dias_uteis_da_janela).
  *
  * Sem look-ahead: Oficial só é usada se `data_linha >= data_divulgacao_oficial`.
- *
- * Status A1–A7 (regras para `dia_aplicacao ≠ dia_vencimento`):
- *   ⚠ NÃO IMPLEMENTADAS. Usa-se um fallback temporário documentado em
- *   `selectTipoTaxaInicial` até que a especificação seja entregue.
  */
 import { supabase } from "@/integrations/supabase/client";
 
@@ -43,12 +31,16 @@ interface CalEntry {
   dia_util: boolean;
 }
 
-// ─── Anniversary helpers ─────────────────────────────────────────────
-
-export function getAnniversaryDay(vencimento: string): number {
-  const d = new Date(vencimento + "T12:00:00");
-  return d.getUTCDate();
+export interface JanelaIpca {
+  /** Aniversário inicial (excluído da contagem). */
+  inicio: string;
+  /** Aniversário final (incluído na contagem). */
+  fim: string;
+  /** Competência YYYY-MM-01 (mês anterior ao `fim`). */
+  competencia: string;
 }
+
+// ─── Helpers de data ─────────────────────────────────────────────────
 
 function clampDay(year: number, month: number, targetDay: number): number {
   const lastDay = new Date(year, month + 1, 0).getDate();
@@ -59,76 +51,83 @@ function toIso(y: number, m: number, d: number): string {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+function getVencDay(vencimento: string): number {
+  return new Date(vencimento + "T12:00:00").getUTCDate();
+}
+
+// ─── Conceito 1 — Data de aniversário ────────────────────────────────
+
 /**
- * Para uma data e dia de aniversário, devolve as bordas do ciclo e a
- * competência IPCA aplicável (mês anterior ao último aniversário —
- * convenção ANBIMA).
+ * Retorna a data ISO do aniversário do título no mês (`ano`, `mes`),
+ * onde `mes` é 1..12. Se o dia do vencimento não existir no mês, usa
+ * o último dia do mês (ex.: vencimento dia 31 em novembro → dia 30).
  */
-export function getAnniversaryBounds(
-  calcDate: string,
-  anniversaryDay: number
-): { lastAnniversary: string; nextAnniversary: string; competencia: string } {
-  const dt = new Date(calcDate + "T12:00:00");
+export function getDataAniversario(vencimento: string, ano: number, mes: number): string {
+  const m = mes - 1;
+  const day = clampDay(ano, m, getVencDay(vencimento));
+  return toIso(ano, m, day);
+}
+
+// ─── Conceito 2 — Janela de cálculo ──────────────────────────────────
+
+/**
+ * Janela vigente para uma data:
+ *   - inicio = último aniversário ≤ data
+ *   - fim    = próximo aniversário >  data
+ *   - competencia = primeiro dia do mês de (fim - 1 mês)
+ */
+export function getJanelaAtual(data: string, vencimento: string): JanelaIpca {
+  const dt = new Date(data + "T12:00:00");
   const y = dt.getUTCFullYear();
-  const m = dt.getUTCMonth();
+  const m = dt.getUTCMonth(); // 0..11
   const day = dt.getUTCDate();
+  const vencDay = getVencDay(vencimento);
+  const annThisMonth = clampDay(y, m, vencDay);
 
-  const clampedThisMonth = clampDay(y, m, anniversaryDay);
+  let iniY: number, iniM: number;
+  let fimY: number, fimM: number;
 
-  let lastY: number, lastM: number, lastD: number;
-  let nextY: number, nextM: number, nextD: number;
-
-  if (day >= clampedThisMonth) {
-    lastY = y; lastM = m; lastD = clampedThisMonth;
-    if (m === 11) { nextY = y + 1; nextM = 0; } else { nextY = y; nextM = m + 1; }
-    nextD = clampDay(nextY, nextM, anniversaryDay);
+  if (day >= annThisMonth) {
+    // Janela atual começa neste mês e termina no próximo
+    iniY = y; iniM = m;
+    if (m === 11) { fimY = y + 1; fimM = 0; } else { fimY = y; fimM = m + 1; }
   } else {
-    if (m === 0) { lastY = y - 1; lastM = 11; } else { lastY = y; lastM = m - 1; }
-    lastD = clampDay(lastY, lastM, anniversaryDay);
-    nextY = y; nextM = m; nextD = clampedThisMonth;
+    // Janela atual começou no mês anterior e termina neste mês
+    if (m === 0) { iniY = y - 1; iniM = 11; } else { iniY = y; iniM = m - 1; }
+    fimY = y; fimM = m;
   }
 
-  const lastAnniversary = toIso(lastY, lastM, lastD);
-  const nextAnniversary = toIso(nextY, nextM, nextD);
+  const inicio = toIso(iniY, iniM, clampDay(iniY, iniM, vencDay));
+  const fim = toIso(fimY, fimM, clampDay(fimY, fimM, vencDay));
 
-  let compY = lastY;
-  let compM = lastM - 1;
+  // Competência = mês anterior ao `fim`
+  let compY = fimY;
+  let compM = fimM - 1;
   if (compM < 0) { compM = 11; compY -= 1; }
   const competencia = `${compY}-${String(compM + 1).padStart(2, "0")}-01`;
 
-  return { lastAnniversary, nextAnniversary, competencia };
+  return { inicio, fim, competencia };
 }
 
-// ─── JanelaTeorica (item 4 do enunciado) ─────────────────────────────
+// ─── Conceito 3 — Dias úteis da janela (inicio, fim] ─────────────────
 
 /**
- * Computa a "JanelaTeorica" para o casal (dataAplicacao, vencimento):
- *  - Se `dia_aplicacao = dia_vencimento`: a janela é o próprio mês de
- *    aplicação no dia do vencimento (clamp ao último dia válido).
- *  - Se `dia_aplicacao > dia_vencimento`: janela é dia_vencimento do
- *    mês seguinte.
- *  - Se `dia_aplicacao < dia_vencimento`: janela é dia_vencimento do
- *    mesmo mês da aplicação.
- *
- * Retorna ISO date.
+ * Conta dias úteis estritamente em `(janela.inicio, janela.fim]`.
+ * Considera apenas `dia_util === true`.
  */
-export function computeJanelaTeorica(dataAplicacao: string, vencimento: string): string {
-  const ap = new Date(dataAplicacao + "T12:00:00");
-  const vc = new Date(vencimento + "T12:00:00");
-  const apY = ap.getUTCFullYear();
-  const apM = ap.getUTCMonth();
-  const apDay = ap.getUTCDate();
-  const vcDay = vc.getUTCDate();
-
-  let y = apY, m = apM;
-  if (apDay > vcDay) {
-    if (m === 11) { y += 1; m = 0; } else { m += 1; }
+export function countDiasUteisJanela(
+  janela: JanelaIpca,
+  calendario: CalEntry[]
+): number {
+  let n = 0;
+  for (const c of calendario) {
+    if (!c.dia_util) continue;
+    if (c.data > janela.inicio && c.data <= janela.fim) n++;
   }
-  const day = clampDay(y, m, vcDay);
-  return toIso(y, m, day);
+  return n;
 }
 
-// ─── Indexação dos registros ─────────────────────────────────────────
+// ─── Conceito 4 — Registro IPCA da competência (sem look-ahead) ──────
 
 interface IpcaIndex {
   /** competencia "YYYY-MM" → registro Oficial mais recente (se houver) */
@@ -153,149 +152,95 @@ function buildIpcaIndex(records: CalendarioIpcaRecord[]): IpcaIndex {
   return { oficial, projetada };
 }
 
-function variacaoToFator(variacaoPct: number): number {
-  return 1 + variacaoPct / 100;
-}
-
-// ─── Seleção Oficial vs Projetada (por dia) ──────────────────────────
-
-interface TaxaResolvida {
-  tipoTaxa: "IPCA" | "Projetada";
-  fator: number;
+export interface RegistroIpcaResolvido {
+  tipo: "IPCA" | "Projetada";
+  variacaoMensal: number;
 }
 
 /**
- * Resolve qual taxa usar para uma competência específica em uma dada
- * data de cálculo, sem look-ahead.
- * - Oficial se existir e `data_linha >= data_divulgacao_oficial`.
- * - Senão, Projetada (se existir).
- * - Fallback final: fator 1.0 (sem correção) — não deve ocorrer em
- *   produção, indica calendario_ipca incompleto.
+ * Resolve, para uma competência e uma data de linha, qual taxa usar:
+ *  - Oficial se existir e `dataLinha >= data_divulgacao_oficial`.
+ *  - Senão Projetada (se existir).
+ *  - Fallback final: 0% (calendario_ipca incompleto).
  */
-function resolverTaxaCompetencia(
+export function getRegistroIpcaDaCompetencia(
   competencia: string,
   dataLinha: string,
   index: IpcaIndex
-): TaxaResolvida {
+): RegistroIpcaResolvido {
   const key = competencia.substring(0, 7);
   const oficial = index.oficial.get(key);
   if (oficial && oficial.data <= dataLinha) {
-    return { tipoTaxa: "IPCA", fator: variacaoToFator(oficial.variacao_mensal) };
+    return { tipo: "IPCA", variacaoMensal: Number(oficial.variacao_mensal) };
   }
   const projetada = index.projetada.get(key);
   if (projetada) {
-    return { tipoTaxa: "Projetada", fator: variacaoToFator(projetada.variacao_mensal) };
+    return { tipo: "Projetada", variacaoMensal: Number(projetada.variacao_mensal) };
   }
-  // Sem dado — fallback neutro
-  return { tipoTaxa: "Projetada", fator: 1.0 };
+  return { tipo: "Projetada", variacaoMensal: 0 };
 }
 
-// ─── selectTipoTaxaInicial ────────────────────────────────────────────
+// ─── Conceito 5 — Tipo da taxa por dia ───────────────────────────────
 
-const _warnedFallback = new Set<string>();
-
-/**
- * Decide o Tipo_Taxa (IPCA | Projetada) inicial para a relação
- * (data_aplicacao, vencimento). Item 5 do enunciado:
- *  - Se `dia_aplicacao = dia_vencimento`:
- *      JanelaTeorica = data_aplicacao no dia_vencimento do próprio mês.
- *      Se `dia >= 15`  → 'Projetada' (IPCA do mês ainda não fechou na divulgação).
- *      Senão           → Oficial se já divulgada (data_linha >= data_div), senão Projetada.
- *  - Se `dia_aplicacao ≠ dia_vencimento`:
- *      ⚠ Regras A1–A7 ainda NÃO especificadas. Fallback temporário:
- *      Oficial da competência vigente se `data_linha >= data_divulgacao_oficial`,
- *      senão Projetada. Emite console.warn uma vez por chave (vencimento).
- */
-export function selectTipoTaxaInicial(
-  dataAplicacao: string,
+export function getTipoTaxaPorDia(
+  data: string,
   vencimento: string,
-  records: CalendarioIpcaRecord[],
-  warnKey?: string
-): "IPCA" | "Projetada" {
-  const index = buildIpcaIndex(records);
-  const apDay = new Date(dataAplicacao + "T12:00:00").getUTCDate();
-  const vcDay = new Date(vencimento + "T12:00:00").getUTCDate();
-
-  if (apDay === vcDay) {
-    const janela = computeJanelaTeorica(dataAplicacao, vencimento);
-    const dia = new Date(janela + "T12:00:00").getUTCDate();
-    // Competência vigente (mês anterior à JanelaTeorica)
-    const jd = new Date(janela + "T12:00:00");
-    const cy = jd.getUTCFullYear();
-    const cm = jd.getUTCMonth() - 1;
-    const compY = cm < 0 ? cy - 1 : cy;
-    const compM = cm < 0 ? 11 : cm;
-    const competencia = `${compY}-${String(compM + 1).padStart(2, "0")}-01`;
-    if (dia >= 15) {
-      return "Projetada";
-    }
-    const t = resolverTaxaCompetencia(competencia, janela, index);
-    return t.tipoTaxa;
-  }
-
-  // Fallback A1–A7
-  const key = warnKey ?? vencimento;
-  if (!_warnedFallback.has(key)) {
-    _warnedFallback.add(key);
-    // eslint-disable-next-line no-console
-    console.warn(
-      "[IPCA] Regras A1–A7 não implementadas — usando fallback temporário (Oficial se divulgada, senão Projetada)",
-      { dataAplicacao, vencimento }
-    );
-  }
-  // Para o fallback usamos a competência via JanelaTeorica calculada normalmente
-  const janela = computeJanelaTeorica(dataAplicacao, vencimento);
-  const jd = new Date(janela + "T12:00:00");
-  const cy = jd.getUTCFullYear();
-  const cm = jd.getUTCMonth() - 1;
-  const compY = cm < 0 ? cy - 1 : cy;
-  const compM = cm < 0 ? 11 : cm;
-  const competencia = `${compY}-${String(compM + 1).padStart(2, "0")}-01`;
-  return resolverTaxaCompetencia(competencia, janela, index).tipoTaxa;
+  calendario: CalEntry[],
+  registros: CalendarioIpcaRecord[]
+): "IPCA" | "Projetada" | null {
+  const cal = calendario.find((c) => c.data === data);
+  if (!cal || !cal.dia_util) return null;
+  const janela = getJanelaAtual(data, vencimento);
+  const idx = buildIpcaIndex(registros);
+  return getRegistroIpcaDaCompetencia(janela.competencia, data, idx).tipo;
 }
 
-// ─── Daily map para CDBLIKE IPCA ─────────────────────────────────────
+// ─── Conceitos 6/7/8 — Daily map para CDBLIKE IPCA ───────────────────
 
 export interface IpcaDailyEntry {
   /** Multiplicador diário da inflação (>=1 em dia útil; 1 em não útil). */
   mult: number;
   /** Tipo da taxa que originou este dia. */
   tipoTaxa: "IPCA" | "Projetada" | null;
-  /** Variação mensal (%) da competência IPCA aplicada nesse dia (fator - 1) * 100. */
-  taxaMensalPct?: number | null;
+  /** Variação mensal (%) da competência aplicada nesse dia. */
+  taxaMensalPct: number | null;
 }
 
 /**
- * Constrói Map<date, { mult, tipoTaxa }> para o caminho CDBLIKE IPCA.
+ * Constrói Map<data, { mult, tipoTaxa, taxaMensalPct }> para o caminho
+ * CDBLIKE + IPCA, conforme modelo Blueberg.
  *
- * Mecânica:
- *  - Para cada dia útil em [dataInicio, dataCalculo], obtém o ciclo de
- *    aniversário (override 15 — convenção ANBIMA) e a competência.
- *  - Decide tipo/fator pela `resolverTaxaCompetencia` (sem look-ahead).
- *  - Distribui o fator mensal pelos dias úteis do ciclo:
- *      dailyFactor = fator^(1/biz_days_in_cycle)
- *  - Em dia não útil: mult = 1, tipoTaxa = null.
+ *  - Para cada dia útil em [dataInicio, dataCalculo]:
+ *      janela    = getJanelaAtual(data, vencimento)
+ *      divisor   = countDiasUteisJanela(janela, calendario)
+ *      { tipo, variacaoMensal } = getRegistroIpcaDaCompetencia(janela.competencia, data, index)
+ *      mult      = (1 + variacaoMensal/100)^(1/divisor)
+ *  - Em dia não útil: mult = 1, tipoTaxa = null, taxaMensalPct = null.
  */
-export function buildIpcaCdbLikeDailyMap(
+export function buildIpcaCdblikeDailyFactorMap(
   dataInicio: string,
   dataCalculo: string,
   vencimento: string,
   calendario: CalEntry[],
-  records: CalendarioIpcaRecord[],
-  overrideAnnDay: number = 15
+  registros: CalendarioIpcaRecord[]
 ): Map<string, IpcaDailyEntry> {
-  const annDay = overrideAnnDay ?? getAnniversaryDay(vencimento);
-  const index = buildIpcaIndex(records);
+  const index = buildIpcaIndex(registros);
   const result = new Map<string, IpcaDailyEntry>();
 
   const sortedCal = [...calendario].sort((a, b) => a.data.localeCompare(b.data));
 
-  const bizDaysSet = new Set<string>();
-  for (const cal of sortedCal) {
-    if (cal.dia_util) bizDaysSet.add(cal.data);
+  // Cache do divisor por janela (chave = inicio|fim — independente da competência).
+  const divisorCache = new Map<string, number>();
+  function getDivisor(janela: JanelaIpca): number {
+    const key = `${janela.inicio}|${janela.fim}`;
+    let n = divisorCache.get(key);
+    if (n === undefined) {
+      n = countDiasUteisJanela(janela, sortedCal);
+      if (n <= 0) n = 1;
+      divisorCache.set(key, n);
+    }
+    return n;
   }
-
-  const cycleCache = new Map<string, { fator: number; tipoTaxa: "IPCA" | "Projetada"; divisor: number }>();
 
   for (const cal of sortedCal) {
     if (cal.data < dataInicio || cal.data > dataCalculo) continue;
@@ -305,42 +250,61 @@ export function buildIpcaCdbLikeDailyMap(
       continue;
     }
 
-    const bounds = getAnniversaryBounds(cal.data, annDay);
-    const cacheKey = `${bounds.lastAnniversary}|${bounds.competencia}`;
+    const janela = getJanelaAtual(cal.data, vencimento);
+    const divisor = getDivisor(janela);
+    const { tipo, variacaoMensal } = getRegistroIpcaDaCompetencia(
+      janela.competencia,
+      cal.data,
+      index
+    );
+    const fatorMensal = 1 + variacaoMensal / 100;
+    const mult = Math.pow(fatorMensal, 1 / divisor);
 
-    let cycleInfo = cycleCache.get(cacheKey);
-    if (!cycleInfo) {
-      let bizDaysInCycle = 0;
-      for (const d of bizDaysSet) {
-        if (d > bounds.lastAnniversary && d <= bounds.nextAnniversary) bizDaysInCycle++;
-      }
-      if (bizDaysInCycle === 0) bizDaysInCycle = 1;
-
-      const t = resolverTaxaCompetencia(bounds.competencia, cal.data, index);
-      cycleInfo = { fator: t.fator, tipoTaxa: t.tipoTaxa, divisor: bizDaysInCycle };
-      cycleCache.set(cacheKey, cycleInfo);
-    } else {
-      // Reavalia tipo do dia (Oficial pode ter virado disponível ao longo do ciclo).
-      const t = resolverTaxaCompetencia(bounds.competencia, cal.data, index);
-      // Se o tipo do dia mudou, atualizamos só o tipoTaxa do dia (não recalculamos divisor).
-      cycleInfo = { ...cycleInfo, tipoTaxa: t.tipoTaxa, fator: t.fator };
-    }
-
-    const dailyFactor = Math.pow(cycleInfo.fator, 1 / cycleInfo.divisor);
-    const taxaMensalPct = (cycleInfo.fator - 1) * 100;
-    result.set(cal.data, { mult: dailyFactor, tipoTaxa: cycleInfo.tipoTaxa, taxaMensalPct });
+    result.set(cal.data, {
+      mult,
+      tipoTaxa: tipo,
+      taxaMensalPct: variacaoMensal,
+    });
   }
 
   return result;
 }
 
-// ─── Data fetching ───────────────────────────────────────────────────
+// ─── Compat: nome anterior usado pela engine ─────────────────────────
+/**
+ * Alias mantido para compatibilidade com `rendaFixaEngine.ts`.
+ * Encaminha para `buildIpcaCdblikeDailyFactorMap` ignorando o antigo
+ * parâmetro `overrideAnnDay` (aniversário agora vem do vencimento).
+ */
+export function buildIpcaCdbLikeDailyMap(
+  dataInicio: string,
+  dataCalculo: string,
+  vencimento: string,
+  calendario: CalEntry[],
+  registros: CalendarioIpcaRecord[],
+  _overrideAnnDay?: number
+): Map<string, IpcaDailyEntry> {
+  return buildIpcaCdblikeDailyFactorMap(dataInicio, dataCalculo, vencimento, calendario, registros);
+}
 
 /**
- * Busca registros da `calendario_ipca` para uma janela de competências
- * que cubra o período [dataInicio, dataFim] (com folga de ±2 meses).
- * Retorna `undefined` se o indexador não for IPCA.
+ * Compat: stub do antigo `selectTipoTaxaInicial`. A decisão agora é por
+ * dia em `getTipoTaxaPorDia` / `getRegistroIpcaDaCompetencia`. Mantido
+ * apenas para não quebrar imports até a engine ser atualizada.
  */
+export function selectTipoTaxaInicial(
+  dataAplicacao: string,
+  vencimento: string,
+  registros: CalendarioIpcaRecord[],
+  _warnKey?: string
+): "IPCA" | "Projetada" {
+  const idx = buildIpcaIndex(registros);
+  const janela = getJanelaAtual(dataAplicacao, vencimento);
+  return getRegistroIpcaDaCompetencia(janela.competencia, dataAplicacao, idx).tipo;
+}
+
+// ─── Data fetching ───────────────────────────────────────────────────
+
 export async function fetchCalendarioIpca(
   indexador: string | null | undefined,
   dataInicio: string,
@@ -356,7 +320,6 @@ export async function fetchCalendarioIpca(
   end.setMonth(end.getMonth() + 2);
   const endMonth = end.toISOString().substring(0, 7) + "-01";
 
-  // `calendario_ipca` ainda não está nos types gerados — cast pontual.
   const { data, error } = await (supabase as any)
     .from("calendario_ipca")
     .select("data, tipo, competencia, variacao_mensal")
@@ -379,10 +342,6 @@ export async function fetchCalendarioIpca(
   }));
 }
 
-/**
- * Versão batch: se algum produto usa IPCA, busca uma única faixa
- * cobrindo todos.
- */
 export async function fetchCalendarioIpcaBatch(
   products: { indexador?: string | null; data_inicio: string }[],
   dataFim: string
