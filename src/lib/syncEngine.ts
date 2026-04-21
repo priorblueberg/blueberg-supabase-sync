@@ -671,6 +671,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
 
   // Sync manual "Resgate Total" values created by the "Fechar Posição" flow (RF non-poupança, non-moedas only)
   if (isRendaFixa && !isPoupanca && !isMoedas) {
+    const produtoEngine = await fetchProdutoEngine(aplicacaoInicial.produto_id);
     await syncManualResgatesTotais(mov.codigo_custodia, mov.user_id!, {
       vencimento: aplicacaoInicial.vencimento,
       resgate_total: resgateTotal,
@@ -685,6 +686,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
       indexador: aplicacaoInicial.indexador,
       nome: aplicacaoInicial.nome_ativo,
       preco_unitario: aplicacaoInicial.preco_unitario,
+      engine: produtoEngine,
     });
 
     // Sync automatic "Resgate no Vencimento"
@@ -702,6 +704,7 @@ export async function syncCustodiaFromMovimentacao(movimentacaoId: string, dataR
       indexador: aplicacaoInicial.indexador,
       nome: aplicacaoInicial.nome_ativo,
       preco_unitario: aplicacaoInicial.preco_unitario,
+      engine: produtoEngine,
     });
   }
 
