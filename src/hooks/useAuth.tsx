@@ -144,3 +144,10 @@ export const useAuth = () => {
 
   return context;
 };
+
+// HMR: força reload completo deste módulo para evitar duas instâncias
+// de `AuthContext` (que causariam "useAuth must be used within AuthProvider").
+if (import.meta.hot) {
+  import.meta.hot.invalidate();
+}
+
