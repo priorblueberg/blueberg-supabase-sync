@@ -161,8 +161,9 @@ export interface RegistroIpcaResolvido {
  * Resolve, para uma competência e uma data de linha, qual taxa usar:
  *  - Oficial se existir e `dataLinha >= data_divulgacao_oficial`.
  *  - Senão Projetada (se existir).
- *  - Fallback final: 0% (calendario_ipca incompleto).
+ *  - Fallback final: 0% (calendario_ipca incompleto) — emite warn único por competência.
  */
+const _ipcaMissingWarned = new Set<string>();
 export function getRegistroIpcaDaCompetencia(
   competencia: string,
   dataLinha: string,
@@ -176,6 +177,11 @@ export function getRegistroIpcaDaCompetencia(
   const projetada = index.projetada.get(key);
   if (projetada) {
     return { tipo: "Projetada", variacaoMensal: Number(projetada.variacao_mensal) };
+  }
+  if (!_ipcaMissingWarned.has(key)) {
+    _ipcaMissingWarned.add(key);
+    // eslint-disable-next-line no-console
+    console.warn(`[IPCA] competência ${key} ausente em calendario_ipca — usando 0% (verifique RLS/seed da tabela).`);
   }
   return { tipo: "Projetada", variacaoMensal: 0 };
 }
