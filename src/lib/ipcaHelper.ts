@@ -100,9 +100,11 @@ export function getJanelaAtual(data: string, vencimento: string): JanelaIpca {
   const inicio = toIso(iniY, iniM, clampDay(iniY, iniM, vencDay));
   const fim = toIso(fimY, fimM, clampDay(fimY, fimM, vencDay));
 
-  // Competência = mês anterior ao `fim`
-  let compY = fimY;
-  let compM = fimM - 1;
+  // Competência = mês anterior ao `inicio` da janela (modelo Blueberg).
+  // Ex.: janela (02/01/2024, 02/02/2024] usa IPCA de 2023-12, pois o IPCA de
+  // dez/2023 é divulgado em meados de jan/2024 e passa a valer a partir daí.
+  let compY = iniY;
+  let compM = iniM - 1;
   if (compM < 0) { compM = 11; compY -= 1; }
   const competencia = `${compY}-${String(compM + 1).padStart(2, "0")}-01`;
 
