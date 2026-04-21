@@ -57,7 +57,7 @@ function buildParamHash(params: {
   movsHash: string;
 }): string {
   return [
-    "v2-ipca-cal", // bump: migração para calendario_ipca
+    "v3-ipca-taxa", // bump: nova coluna Taxa (variação mensal IPCA) em DailyRow
     params.dataInicio,
     params.taxa,
     params.modalidade,
