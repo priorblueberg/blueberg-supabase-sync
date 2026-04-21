@@ -58,7 +58,7 @@ function buildParamHash(params: {
   movsHash: string;
 }): string {
   return [
-    "v9-ipca-competencia-inicio", // bump: competência da janela = mês anterior ao INÍCIO (modelo Blueberg)
+    "v10-ipca-blueberg-janela-inicio", // bump: força recálculo após ajuste definitivo da competência IPCA pelo início da janela
     params.dataInicio,
     params.taxa,
     params.modalidade,
