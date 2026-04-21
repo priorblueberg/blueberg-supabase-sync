@@ -4,7 +4,7 @@
  * Modelo do simulador Blueberg para CDBLIKE + IPCA:
  *   - Aniversário do título = dia do vencimento (clamp ao último dia do mês).
  *   - Janela = intervalo (aniv_inicio, aniv_fim] entre dois aniversários consecutivos.
- *   - Competência da janela = mês imediatamente anterior ao `fim` da janela.
+ *   - Competência da janela = mês imediatamente anterior ao `inicio` da janela.
  *   - Decisão Oficial vs Projetada por dia, sem look-ahead.
  *   - fator_diario = (1 + variacao_mensal/100) ^ (1 / dias_uteis_da_janela).
  *
@@ -36,7 +36,7 @@ export interface JanelaIpca {
   inicio: string;
   /** Aniversário final (incluído na contagem). */
   fim: string;
-  /** Competência YYYY-MM-01 (mês anterior ao `fim`). */
+  /** Competência YYYY-MM-01 (mês anterior ao `inicio`). */
   competencia: string;
 }
 
@@ -74,7 +74,7 @@ export function getDataAniversario(vencimento: string, ano: number, mes: number)
  * Janela vigente para uma data:
  *   - inicio = último aniversário ≤ data
  *   - fim    = próximo aniversário >  data
- *   - competencia = primeiro dia do mês de (fim - 1 mês)
+ *   - competencia = primeiro dia do mês anterior ao início da janela
  */
 export function getJanelaAtual(data: string, vencimento: string): JanelaIpca {
   const dt = new Date(data + "T12:00:00");
