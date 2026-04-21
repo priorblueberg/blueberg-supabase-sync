@@ -388,7 +388,7 @@ export default function CadastrarTransacaoDialog({ open, onClose, origin, initia
       finally { setCalculandoSaldo(false); }
       return;
     }
-    const isRendaFixaEngine = (selectedCustodia.modalidade === "Prefixado" || selectedCustodia.modalidade === "Pos Fixado" || selectedCustodia.modalidade === "Pós Fixado" || selectedCustodia.modalidade === "Mista") && selectedCustodia.taxa && selectedCustodia.preco_unitario;
+    const isRendaFixaEngine = (selectedCustodia.modalidade === "Prefixado" || selectedCustodia.modalidade === "Pos Fixado" || selectedCustodia.modalidade === "Pós Fixado" || selectedCustodia.modalidade === "Mista") && selectedCustodia.taxa != null && selectedCustodia.preco_unitario;
     if (isRendaFixaEngine) {
       setCalculandoSaldo(true);
       try {
