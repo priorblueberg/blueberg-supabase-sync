@@ -101,19 +101,25 @@ export default function MovimentacoesPage() {
 
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("movimentacoes")
-      .select(`
-        id, created_at, data, tipo_movimentacao,
-        pagamento, nome_ativo, quantidade, preco_unitario,
-        valor, origem, codigo_custodia, modalidade,
-        instituicoes(nome)
-      `)
-      .eq("user_id", user.id)
-      .order("data", { ascending: false });
+    const [{ data, error }, { data: custodiaData }] = await Promise.all([
+      supabase
+        .from("movimentacoes")
+        .select(`
+          id, created_at, data, tipo_movimentacao,
+          pagamento, nome_ativo, quantidade, preco_unitario,
+          valor, origem, codigo_custodia, modalidade, indexador,
+          instituicoes(nome)
+        `)
+        .eq("user_id", user.id)
+        .order("data", { ascending: false }),
+      supabase
+        .from("custodia")
+        .select("codigo_custodia, nome, data_inicio, data_calculo, taxa, modalidade, preco_unitario, resgate_total, pagamento, vencimento, indexador, data_limite, produtos(engine), instituicoes(nome)")
+        .eq("user_id", user.id),
+    ]);
 
     if (!error && data) {
-      const mapped = data.map((r: any) => ({
+      const mapped: Movimentacao[] = data.map((r: any) => ({
           id: r.id,
           created_at: r.created_at,
           data: r.data,
@@ -127,9 +133,99 @@ export default function MovimentacoesPage() {
           origem: r.origem ?? "manual",
           codigo_custodia: r.codigo_custodia ?? null,
           modalidade: r.modalidade ?? null,
+          indexador: r.indexador ?? null,
         }));
-      setRows(mapped);
-      _movCachedRows = mapped;
+
+      const ipcaProducts: IpcaProductForMovs[] = ((custodiaData as any[]) || [])
+        .map((r: any) => ({
+          codigo_custodia: r.codigo_custodia,
+          nome: r.nome,
+          data_inicio: r.data_inicio,
+          data_calculo: r.data_calculo,
+          taxa: r.taxa != null ? Number(r.taxa) : null,
+          modalidade: r.modalidade,
+          preco_unitario: r.preco_unitario != null ? Number(r.preco_unitario) : null,
+          resgate_total: r.resgate_total,
+          pagamento: r.pagamento,
+          vencimento: r.vencimento,
+          indexador: r.indexador,
+          data_limite: r.data_limite,
+          engine: r.produtos?.engine ?? null,
+          instituicao: r.instituicoes?.nome ?? null,
+        }))
+        .filter((p) => isIpcaCdblike(p.engine, p.indexador));
+
+      let finalRows = mapped;
+      if (ipcaProducts.length > 0) {
+        const minDate = ipcaProducts.reduce((min, p) => (p.data_inicio < min ? p.data_inicio : min), ipcaProducts[0].data_inicio);
+        const maxDate = ipcaProducts.reduce((max, p) => {
+          const end = p.resgate_total || p.vencimento || p.data_calculo || dataReferenciaISO;
+          return end > max ? end : max;
+        }, dataReferenciaISO);
+        const [{ data: calendarioData }, { data: cdiData }, calendarioIpcaRecords] = await Promise.all([
+          supabase.from("calendario_dias_uteis").select("data, dia_util").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
+          supabase.from("historico_cdi").select("data, taxa_anual").gte("data", getDateMinus(minDate, 5)).lte("data", maxDate).order("data"),
+          fetchCalendarioIpcaBatch(ipcaProducts, maxDate),
+        ]);
+
+        const calendario = (calendarioData || []).map((c: any) => ({ data: c.data, dia_util: c.dia_util }));
+        const cdiRecords = (cdiData || []).map((c: any) => ({ data: c.data, taxa_anual: Number(c.taxa_anual) }));
+        const ipcaCodes = new Set(ipcaProducts.map((p) => p.codigo_custodia));
+        const engineRows: Movimentacao[] = [];
+
+        for (const product of ipcaProducts) {
+          const dataFim = product.resgate_total || product.vencimento || product.data_calculo || dataReferenciaISO;
+          const productMovs = mapped
+            .filter((m) => m.codigo_custodia === product.codigo_custodia)
+            .map((m) => ({ data: m.data, tipo_movimentacao: m.tipo_movimentacao, valor: m.valor ?? 0 }));
+          const rowsEngine = calcularRendaFixaDiario({
+            dataInicio: product.data_inicio,
+            dataCalculo: dataFim,
+            taxa: product.taxa || 0,
+            modalidade: product.modalidade || "",
+            puInicial: product.preco_unitario || 1000,
+            calendario,
+            movimentacoes: productMovs,
+            dataResgateTotal: product.resgate_total,
+            pagamento: product.pagamento,
+            vencimento: product.vencimento,
+            indexador: product.indexador,
+            cdiRecords,
+            dataLimite: product.data_limite,
+            calendarioSorted: true,
+            calendarioIpcaRecords,
+            engine: product.engine,
+          });
+
+          buildIpcaCdblikeEngineMovements(rowsEngine).forEach((m, idx) => {
+            engineRows.push({
+              id: `ipca-engine-${product.codigo_custodia}-${m.tipo_movimentacao}-${m.data}-${idx}`,
+              created_at: "",
+              data: m.data,
+              tipo_movimentacao: m.tipo_movimentacao,
+              pagamento: product.pagamento,
+              nome_ativo: product.nome,
+              instituicao: (product as any).instituicao ?? null,
+              quantidade: null,
+              preco_unitario: null,
+              valor: m.valor,
+              origem: "automatico",
+              codigo_custodia: product.codigo_custodia,
+              modalidade: product.modalidade,
+              indexador: product.indexador,
+              engine: product.engine,
+            });
+          });
+        }
+
+        finalRows = [
+          ...mapped.filter((m) => !(m.codigo_custodia != null && ipcaCodes.has(m.codigo_custodia) && m.origem === "automatico" && (m.tipo_movimentacao === "Resgate no Vencimento" || m.tipo_movimentacao === "Resgate Total" || m.tipo_movimentacao === "Pagamento de Juros"))),
+          ...engineRows,
+        ];
+      }
+
+      setRows(finalRows);
+      _movCachedRows = finalRows;
       _movCachedUserId = user.id;
     }
     _movCachedVersion = appliedVersion;
