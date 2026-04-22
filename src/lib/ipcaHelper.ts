@@ -372,7 +372,7 @@ export function buildIpcaCdblikeDailyFactorMap(
       }
 
       taxaAnterior = dataUtilAnterior
-        ? getRegistroIpcaDaCompetencia(janela.competencia, dataUtilAnterior, index).variacaoMensal
+        ? getRegistroIpcaDaCompetencia(competenciaEfetiva, dataUtilAnterior, index).variacaoMensal
         : taxaNova;
 
       const fatorNovo = 1 + taxaNova / 100;
