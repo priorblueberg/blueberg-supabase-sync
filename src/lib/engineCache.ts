@@ -58,7 +58,7 @@ function buildParamHash(params: {
   movsHash: string;
 }): string {
   return [
-    "v12-ipca-aniversario-fim-janela", // bump: força recálculo após aniversário pertencer à janela anterior no IPCA
+    "v13-ipca-primeira-janela-sem-lookahead", // bump: força recálculo após ajuste IPCA da primeira janela sem look-ahead
     params.dataInicio,
     params.taxa,
     params.modalidade,
