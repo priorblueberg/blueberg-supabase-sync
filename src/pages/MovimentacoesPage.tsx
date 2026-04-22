@@ -77,6 +77,12 @@ let _movCachedUserId: string | null = null;
 let _movCachedRows: Movimentacao[] = [];
 registerCacheReset(() => { _movCachedVersion = null; _movCachedUserId = null; _movCachedRows = []; });
 
+function getDateMinus(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function MovimentacoesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
