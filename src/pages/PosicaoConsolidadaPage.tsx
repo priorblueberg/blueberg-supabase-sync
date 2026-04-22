@@ -33,6 +33,7 @@ import { useBoletaModal } from "@/contexts/BoletaModalContext";
 import PosicaoDetalheDialog, { type PosicaoDetalheData } from "@/components/PosicaoDetalheDialog";
 import CarteirasSummaryTable, { type CarteiraSummaryRow } from "@/components/CarteirasSummaryTable";
 import { filtrarProdutosPorDataReferencia } from "@/lib/posicaoConsolidadaFilter";
+import { buildIpcaCdblikeEngineMovements, isIpcaCdblike } from "@/lib/ipcaEngineMovements";
 
 interface CustodiaProduct {
   id: string;
@@ -608,6 +609,7 @@ export default function PosicaoConsolidadaPage() {
       codigoCustodia: p.codigo_custodia,
       categoriaId: p.categoria_id,
       indexador: p.indexador,
+      engine: p.engine,
       taxa: p.taxa,
       modalidade: p.modalidade,
       pagamento: p.pagamento,
@@ -746,6 +748,9 @@ export default function PosicaoConsolidadaPage() {
         const isPoupanca = detalheRow.product.modalidade === "Poupança";
         const jurosAniversario: { data: string; valor: number }[] = [];
         const pagamentosJuros: { data: string; valor: number }[] = [];
+        const ipcaEngineMovements = isIpcaCdblike(detalheRow.product.engine, detalheRow.product.indexador)
+          ? buildIpcaCdblikeEngineMovements(_cachedRFEngineRows.get(detalheRow.product.codigo_custodia) ?? [])
+          : [];
         if (isPoupanca) {
           const engineRows = _cachedPoupancaEngineRows.get(detalheRow.product.codigo_custodia);
           if (engineRows) {
@@ -800,6 +805,7 @@ export default function PosicaoConsolidadaPage() {
             onDataChanged={() => { calcVersionRef.current += 1; calculate(calcVersionRef.current); applyDataReferencia(); }}
             jurosAniversario={jurosAniversario}
             pagamentosJuros={pagamentosJuros}
+            ipcaEngineMovements={ipcaEngineMovements}
             prefill={prefill}
           />
         );
