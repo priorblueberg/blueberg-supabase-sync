@@ -58,7 +58,7 @@ function buildParamHash(params: {
   movsHash: string;
 }): string {
   return [
-    "v10-ipca-blueberg-janela-inicio", // bump: força recálculo após ajuste definitivo da competência IPCA pelo início da janela
+    "v11-ipca-dia-acerto-oficial", // bump: força recálculo após ajuste no dia de divulgação oficial do IPCA
     params.dataInicio,
     params.taxa,
     params.modalidade,
