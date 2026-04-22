@@ -17,6 +17,7 @@ import {
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { useBoletaModal } from "@/contexts/BoletaModalContext";
 import type { CustodiaRowForBoleta } from "@/types/boleta";
+import { isIpcaCdblike, type EngineMovementDisplay } from "@/lib/ipcaEngineMovements";
 
 interface Movimentacao {
   id: string;
@@ -36,6 +37,7 @@ export interface PosicaoDetalheData {
   codigoCustodia: number;
   categoriaId: string;
   indexador: string | null;
+  engine: string | null;
   taxa: number | null;
   modalidade: string | null;
   pagamento: string | null;
@@ -54,6 +56,7 @@ interface Props {
   onDataChanged: () => void;
   jurosAniversario?: { data: string; valor: number }[];
   pagamentosJuros?: { data: string; valor: number }[];
+  ipcaEngineMovements?: EngineMovementDisplay[];
   prefill?: CustodiaRowForBoleta;
 }
 
@@ -73,8 +76,9 @@ function isMoedasCategoria(nome: string): boolean {
   return nome.toLowerCase().includes("dólar") || nome.toLowerCase().includes("euro") || nome.toLowerCase().includes("dollar");
 }
 
-export default function PosicaoDetalheDialog({ open, onClose, data, userId, dataReferenciaISO, onDataChanged, jurosAniversario = [], pagamentosJuros = [], prefill }: Props) {
+export default function PosicaoDetalheDialog({ open, onClose, data, userId, dataReferenciaISO, onDataChanged, jurosAniversario = [], pagamentosJuros = [], ipcaEngineMovements = [], prefill }: Props) {
   const isPoupanca = data.modalidade === "Poupança";
+  const useIpcaEngineSplit = isIpcaCdblike(data.engine, data.indexador);
   const { openBoleta } = useBoletaModal();
   const [movs, setMovs] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(false);
@@ -120,21 +124,36 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
         origem: "automatico",
       }));
 
-    // Merge synthetic pagamento de juros (Renda Fixa)
-    const pagJurosRows: Movimentacao[] = pagamentosJuros
-      .filter((p) => p.data <= dataReferenciaISO)
-      .map((p, idx) => ({
-        id: `pagjuros-${p.data}-${idx}`,
-        data: p.data,
-        tipo_movimentacao: "Pagamento de Juros",
-        valor: p.valor,
-        quantidade: null,
-        preco_unitario: null,
-        origem: "automatico",
-      }));
+    const engineDerivedRows: Movimentacao[] = useIpcaEngineSplit
+      ? ipcaEngineMovements
+        .filter((p) => p.data <= dataReferenciaISO)
+        .map((p, idx) => ({
+          id: `ipca-engine-${p.tipo_movimentacao}-${p.data}-${idx}`,
+          data: p.data,
+          tipo_movimentacao: p.tipo_movimentacao,
+          valor: p.valor,
+          quantidade: null,
+          preco_unitario: null,
+          origem: "automatico",
+        }))
+      : pagamentosJuros
+        .filter((p) => p.data <= dataReferenciaISO)
+        .map((p, idx) => ({
+          id: `pagjuros-${p.data}-${idx}`,
+          data: p.data,
+          tipo_movimentacao: "Pagamento de Juros",
+          valor: p.valor,
+          quantidade: null,
+          preco_unitario: null,
+          origem: "automatico",
+        }));
+
+    const persistedRows = useIpcaEngineSplit
+      ? deduped.filter((m) => !(m.origem === "automatico" && (m.tipo_movimentacao === "Resgate no Vencimento" || m.tipo_movimentacao === "Resgate Total" || m.tipo_movimentacao === "Pagamento de Juros")))
+      : deduped;
 
     // For Poupança, compute running balance (ascending order, then reverse for display)
-    const sortedAsc = [...deduped, ...jurosRows, ...pagJurosRows].sort((a, b) => a.data.localeCompare(b.data));
+    const sortedAsc = [...persistedRows, ...jurosRows, ...engineDerivedRows].sort((a, b) => a.data.localeCompare(b.data));
     if (isPoupanca) {
       let saldo = 0;
       for (const m of sortedAsc) {
@@ -238,8 +257,8 @@ export default function PosicaoDetalheDialog({ open, onClose, data, userId, data
                         const jurosDoDia = isResgateVenc
                           ? pagamentosJuros.filter((p) => p.data === m.data).reduce((s, p) => s + p.valor, 0)
                           : 0;
-                        const displayTipo = isResgateVenc ? "Amortização" : m.tipo_movimentacao;
-                        const displayValor = isResgateVenc ? Math.max(0, m.valor - jurosDoDia) : m.valor;
+                        const displayTipo = !useIpcaEngineSplit && isResgateVenc ? "Amortização" : m.tipo_movimentacao;
+                        const displayValor = !useIpcaEngineSplit && isResgateVenc ? Math.max(0, m.valor - jurosDoDia) : m.valor;
                         return (
                           <TableRow key={m.id}>
                             <TableCell className="whitespace-nowrap">{fmtDate(m.data)}</TableCell>
