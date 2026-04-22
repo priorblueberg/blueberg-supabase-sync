@@ -17,6 +17,7 @@ import {
 import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { useBoletaModal } from "@/contexts/BoletaModalContext";
 import type { CustodiaRowForBoleta } from "@/types/boleta";
+import { isIpcaCdblike, type EngineMovementDisplay } from "@/lib/ipcaEngineMovements";
 
 interface Movimentacao {
   id: string;
@@ -36,6 +37,7 @@ export interface PosicaoDetalheData {
   codigoCustodia: number;
   categoriaId: string;
   indexador: string | null;
+  engine: string | null;
   taxa: number | null;
   modalidade: string | null;
   pagamento: string | null;
@@ -54,6 +56,7 @@ interface Props {
   onDataChanged: () => void;
   jurosAniversario?: { data: string; valor: number }[];
   pagamentosJuros?: { data: string; valor: number }[];
+  ipcaEngineMovements?: EngineMovementDisplay[];
   prefill?: CustodiaRowForBoleta;
 }
 
@@ -73,8 +76,9 @@ function isMoedasCategoria(nome: string): boolean {
   return nome.toLowerCase().includes("dólar") || nome.toLowerCase().includes("euro") || nome.toLowerCase().includes("dollar");
 }
 
-export default function PosicaoDetalheDialog({ open, onClose, data, userId, dataReferenciaISO, onDataChanged, jurosAniversario = [], pagamentosJuros = [], prefill }: Props) {
+export default function PosicaoDetalheDialog({ open, onClose, data, userId, dataReferenciaISO, onDataChanged, jurosAniversario = [], pagamentosJuros = [], ipcaEngineMovements = [], prefill }: Props) {
   const isPoupanca = data.modalidade === "Poupança";
+  const useIpcaEngineSplit = isIpcaCdblike(data.engine, data.indexador);
   const { openBoleta } = useBoletaModal();
   const [movs, setMovs] = useState<Movimentacao[]>([]);
   const [loading, setLoading] = useState(false);
