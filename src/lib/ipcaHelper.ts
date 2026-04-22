@@ -212,6 +212,32 @@ export interface IpcaDailyEntry {
   tipoTaxa: "IPCA" | "Projetada" | null;
   /** Variação mensal (%) da competência aplicada nesse dia. */
   taxaMensalPct: number | null;
+  /** Auditoria CDBLIKE+IPCA: true quando a linha é a divulgação oficial da competência vigente. */
+  isAcerto?: boolean;
+  /** Dias úteis transcorridos na janela antes do dia de acerto. */
+  diasParaAcerto?: number;
+  /** Taxa mensal (%) efetivamente usada no dia útil anterior ao acerto. */
+  taxaAnterior?: number | null;
+  /** Taxa mensal (%) oficial usada no acerto. */
+  taxaNova?: number | null;
+  /** Data de divulgação oficial da competência vigente. */
+  dataDivulgacaoOficial?: string | null;
+}
+
+/**
+ * Dias úteis em `(janela.inicio, dataAcerto)`: exclui o aniversário inicial e o próprio acerto.
+ */
+export function getDiasParaAcerto(
+  janela: JanelaIpca,
+  dataAcerto: string,
+  calendario: CalEntry[]
+): number {
+  let n = 0;
+  for (const c of calendario) {
+    if (!c.dia_util) continue;
+    if (c.data > janela.inicio && c.data < dataAcerto) n++;
+  }
+  return n;
 }
 
 /**
@@ -221,8 +247,10 @@ export interface IpcaDailyEntry {
  *  - Para cada dia útil em [dataInicio, dataCalculo]:
  *      janela    = getJanelaAtual(data, vencimento)
  *      divisor   = countDiasUteisJanela(janela, calendario)
- *      { tipo, variacaoMensal } = getRegistroIpcaDaCompetencia(janela.competencia, data, index)
- *      mult      = (1 + variacaoMensal/100)^(1/divisor)
+ *      Se data = divulgação oficial da competência vigente, aplica o acerto:
+ *        mult = (1+taxaNova)^(1/divisor) * ((1+taxaNova)/(1+taxaAnterior))^(diasParaAcerto/divisor)
+ *      Senão:
+ *        mult = (1 + variacaoMensal/100)^(1/divisor)
  *  - Em dia não útil: mult = 1, tipoTaxa = null, taxaMensalPct = null.
  */
 export function buildIpcaCdblikeDailyFactorMap(
@@ -265,13 +293,49 @@ export function buildIpcaCdblikeDailyFactorMap(
       cal.data,
       index
     );
-    const fatorMensal = 1 + variacaoMensal / 100;
-    const mult = Math.pow(fatorMensal, 1 / divisor);
+    const officialRecord = index.oficial.get(janela.competencia.substring(0, 7));
+    const dataDivulgacaoOficial = officialRecord?.data ?? null;
+    const isAcerto = !!officialRecord && cal.data === officialRecord.data;
+
+    let mult: number;
+    let diasParaAcerto: number | undefined;
+    let taxaAnterior: number | null | undefined;
+    let taxaNova: number | null | undefined;
+
+    if (isAcerto) {
+      diasParaAcerto = getDiasParaAcerto(janela, cal.data, sortedCal);
+      taxaNova = Number(officialRecord.variacao_mensal);
+
+      let dataUtilAnterior: string | null = null;
+      for (let i = sortedCal.indexOf(cal) - 1; i >= 0; i--) {
+        if (sortedCal[i].dia_util && sortedCal[i].data > janela.inicio && sortedCal[i].data < cal.data) {
+          dataUtilAnterior = sortedCal[i].data;
+          break;
+        }
+      }
+
+      taxaAnterior = dataUtilAnterior
+        ? getRegistroIpcaDaCompetencia(janela.competencia, dataUtilAnterior, index).variacaoMensal
+        : taxaNova;
+
+      const fatorNovo = 1 + taxaNova / 100;
+      const fatorAnterior = 1 + (taxaAnterior ?? taxaNova) / 100;
+      mult = Math.pow(fatorNovo, 1 / divisor) *
+        Math.pow(fatorNovo / fatorAnterior, diasParaAcerto / divisor);
+    } else {
+      const fatorMensal = 1 + variacaoMensal / 100;
+      mult = Math.pow(fatorMensal, 1 / divisor);
+    }
 
     result.set(cal.data, {
       mult,
       tipoTaxa: tipo,
       taxaMensalPct: variacaoMensal,
+      isAcerto,
+      diasParaAcerto,
+      taxaAnterior,
+      taxaNova,
+      dataDivulgacaoOficial,
     });
   }
 
