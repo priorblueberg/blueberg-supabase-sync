@@ -72,9 +72,12 @@ export function getDataAniversario(vencimento: string, ano: number, mes: number)
 
 /**
  * Janela vigente para uma data:
- *   - inicio = último aniversário ≤ data
- *   - fim    = próximo aniversário >  data
+ *   - inicio = último aniversário < data
+ *   - fim    = próximo aniversário >= data
  *   - competencia = primeiro dia do mês anterior ao início da janela
+ *
+ * Como a janela é (inicio, fim], o próprio dia do aniversário ainda pertence
+ * à janela anterior. A nova janela só começa no dia seguinte ao aniversário.
  */
 export function getJanelaAtual(data: string, vencimento: string): JanelaIpca {
   const dt = new Date(data + "T12:00:00");
@@ -87,7 +90,7 @@ export function getJanelaAtual(data: string, vencimento: string): JanelaIpca {
   let iniY: number, iniM: number;
   let fimY: number, fimM: number;
 
-  if (day >= annThisMonth) {
+  if (day > annThisMonth) {
     // Janela atual começa neste mês e termina no próximo
     iniY = y; iniM = m;
     if (m === 11) { fimY = y + 1; fimM = 0; } else { fimY = y; fimM = m + 1; }
