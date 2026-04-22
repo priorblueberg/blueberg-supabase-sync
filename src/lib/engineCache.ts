@@ -58,7 +58,7 @@ function buildParamHash(params: {
   movsHash: string;
 }): string {
   return [
-    "v11-ipca-dia-acerto-oficial", // bump: força recálculo após ajuste no dia de divulgação oficial do IPCA
+    "v12-ipca-aniversario-fim-janela", // bump: força recálculo após aniversário pertencer à janela anterior no IPCA
     params.dataInicio,
     params.taxa,
     params.modalidade,
