@@ -160,6 +160,47 @@ function buildIpcaIndex(records: CalendarioIpcaRecord[]): IpcaIndex {
 export interface RegistroIpcaResolvido {
   tipo: "IPCA" | "Projetada";
   variacaoMensal: number;
+  competencia: string;
+}
+
+interface RegistroIpcaOptions {
+  /** Data de aplicação do título; usada apenas na exceção inicial CDBLIKE+IPCA. */
+  dataInicio?: string;
+}
+
+function getRegistroInicialDaAplicacao(
+  competenciaNormal: string,
+  dataLinha: string,
+  index: IpcaIndex,
+  options?: RegistroIpcaOptions
+): RegistroIpcaResolvido | null {
+  const dataInicio = options?.dataInicio;
+  if (!dataInicio || dataLinha < dataInicio) return null;
+
+  const competenciaInicial = `${dataInicio.substring(0, 7)}-01`;
+  const keyInicial = competenciaInicial.substring(0, 7);
+  const keyNormal = competenciaNormal.substring(0, 7);
+  const oficialInicial = index.oficial.get(keyInicial);
+  const projetadaInicial = index.projetada.get(keyInicial);
+
+  if (!oficialInicial || !projetadaInicial) return null;
+  if (dataInicio >= oficialInicial.data) return null;
+  if (projetadaInicial.data > dataInicio) return null;
+  if (keyNormal > keyInicial) return null;
+
+  if (dataLinha < oficialInicial.data) {
+    return {
+      tipo: "Projetada",
+      variacaoMensal: Number(projetadaInicial.variacao_mensal),
+      competencia: competenciaInicial,
+    };
+  }
+
+  return {
+    tipo: "IPCA",
+    variacaoMensal: Number(oficialInicial.variacao_mensal),
+    competencia: competenciaInicial,
+  };
 }
 
 /**
@@ -172,23 +213,27 @@ const _ipcaMissingWarned = new Set<string>();
 export function getRegistroIpcaDaCompetencia(
   competencia: string,
   dataLinha: string,
-  index: IpcaIndex
+  index: IpcaIndex,
+  options?: RegistroIpcaOptions
 ): RegistroIpcaResolvido {
+  const registroInicial = getRegistroInicialDaAplicacao(competencia, dataLinha, index, options);
+  if (registroInicial) return registroInicial;
+
   const key = competencia.substring(0, 7);
   const oficial = index.oficial.get(key);
   if (oficial && oficial.data <= dataLinha) {
-    return { tipo: "IPCA", variacaoMensal: Number(oficial.variacao_mensal) };
+    return { tipo: "IPCA", variacaoMensal: Number(oficial.variacao_mensal), competencia };
   }
   const projetada = index.projetada.get(key);
   if (projetada) {
-    return { tipo: "Projetada", variacaoMensal: Number(projetada.variacao_mensal) };
+    return { tipo: "Projetada", variacaoMensal: Number(projetada.variacao_mensal), competencia };
   }
   if (!_ipcaMissingWarned.has(key)) {
     _ipcaMissingWarned.add(key);
     // eslint-disable-next-line no-console
     console.warn(`[IPCA] competência ${key} ausente em calendario_ipca — usando 0% (verifique RLS/seed da tabela).`);
   }
-  return { tipo: "Projetada", variacaoMensal: 0 };
+  return { tipo: "Projetada", variacaoMensal: 0, competencia };
 }
 
 // ─── Conceito 5 — Tipo da taxa por dia ───────────────────────────────
@@ -197,13 +242,14 @@ export function getTipoTaxaPorDia(
   data: string,
   vencimento: string,
   calendario: CalEntry[],
-  registros: CalendarioIpcaRecord[]
+  registros: CalendarioIpcaRecord[],
+  dataInicio?: string
 ): "IPCA" | "Projetada" | null {
   const cal = calendario.find((c) => c.data === data);
   if (!cal || !cal.dia_util) return null;
   const janela = getJanelaAtual(data, vencimento);
   const idx = buildIpcaIndex(registros);
-  return getRegistroIpcaDaCompetencia(janela.competencia, data, idx).tipo;
+  return getRegistroIpcaDaCompetencia(janela.competencia, data, idx, { dataInicio }).tipo;
 }
 
 // ─── Conceitos 6/7/8 — Daily map para CDBLIKE IPCA ───────────────────
@@ -294,7 +340,8 @@ export function buildIpcaCdblikeDailyFactorMap(
     const { tipo, variacaoMensal } = getRegistroIpcaDaCompetencia(
       janela.competencia,
       cal.data,
-      index
+      index,
+      { dataInicio }
     );
     const officialRecord = index.oficial.get(janela.competencia.substring(0, 7));
     const dataDivulgacaoOficial = officialRecord?.data ?? null;
@@ -318,7 +365,7 @@ export function buildIpcaCdblikeDailyFactorMap(
       }
 
       taxaAnterior = dataUtilAnterior
-        ? getRegistroIpcaDaCompetencia(janela.competencia, dataUtilAnterior, index).variacaoMensal
+        ? getRegistroIpcaDaCompetencia(janela.competencia, dataUtilAnterior, index, { dataInicio }).variacaoMensal
         : taxaNova;
 
       const fatorNovo = 1 + taxaNova / 100;
