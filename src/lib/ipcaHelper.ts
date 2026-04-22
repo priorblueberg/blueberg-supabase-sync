@@ -55,6 +55,16 @@ function getVencDay(vencimento: string): number {
   return new Date(vencimento + "T12:00:00").getUTCDate();
 }
 
+function addDaysIso(data: string, days: number): string {
+  const dt = new Date(data + "T12:00:00");
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().substring(0, 10);
+}
+
+function getCompetenciaMesDaData(data: string): string {
+  return `${data.substring(0, 7)}-01`;
+}
+
 // ─── Conceito 1 — Data de aniversário ────────────────────────────────
 
 /**
@@ -191,6 +201,43 @@ export function getRegistroIpcaDaCompetencia(
   return { tipo: "Projetada", variacaoMensal: 0 };
 }
 
+/**
+ * Competência efetiva para a primeira janela de uma aplicação IPCA.
+ *
+ * Quando a aplicação entra antes da divulgação oficial da competência vigente,
+ * a planilha antiga mantém a projetada dessa competência até a véspera da
+ * divulgação e troca para a oficial na própria data de divulgação. Sem esta
+ * regra, aplicações no dia de aniversário podem cair na competência defasada
+ * da janela anterior e buscar uma oficial já conhecida cedo demais.
+ */
+function getCompetenciaEfetivaParaLinha(
+  dataLinha: string,
+  dataInicio: string,
+  vencimento: string,
+  janela: JanelaIpca,
+  index: IpcaIndex
+): string {
+  const competenciaInicial = getCompetenciaMesDaData(dataInicio);
+  const keyInicial = competenciaInicial.substring(0, 7);
+  const oficialInicial = index.oficial.get(keyInicial);
+  const projetadaInicial = index.projetada.get(keyInicial);
+
+  if (!oficialInicial || !projetadaInicial || dataInicio >= oficialInicial.data) {
+    return janela.competencia;
+  }
+
+  const janelaAplicacao = getJanelaAtual(dataInicio, vencimento);
+  const fimPrimeiraJanela = dataInicio === janelaAplicacao.fim
+    ? getJanelaAtual(addDaysIso(dataInicio, 1), vencimento).fim
+    : janelaAplicacao.fim;
+
+  if (dataLinha >= dataInicio && dataLinha <= fimPrimeiraJanela) {
+    return competenciaInicial;
+  }
+
+  return janela.competencia;
+}
+
 // ─── Conceito 5 — Tipo da taxa por dia ───────────────────────────────
 
 export function getTipoTaxaPorDia(
@@ -291,12 +338,19 @@ export function buildIpcaCdblikeDailyFactorMap(
 
     const janela = getJanelaAtual(cal.data, vencimento);
     const divisor = getDivisor(janela);
+    const competenciaEfetiva = getCompetenciaEfetivaParaLinha(
+      cal.data,
+      dataInicio,
+      vencimento,
+      janela,
+      index
+    );
     const { tipo, variacaoMensal } = getRegistroIpcaDaCompetencia(
-      janela.competencia,
+      competenciaEfetiva,
       cal.data,
       index
     );
-    const officialRecord = index.oficial.get(janela.competencia.substring(0, 7));
+    const officialRecord = index.oficial.get(competenciaEfetiva.substring(0, 7));
     const dataDivulgacaoOficial = officialRecord?.data ?? null;
     const isAcerto = !!officialRecord && cal.data === officialRecord.data;
 
