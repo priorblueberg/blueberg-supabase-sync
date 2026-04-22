@@ -242,13 +242,14 @@ export function getTipoTaxaPorDia(
   data: string,
   vencimento: string,
   calendario: CalEntry[],
-  registros: CalendarioIpcaRecord[]
+  registros: CalendarioIpcaRecord[],
+  dataInicio?: string
 ): "IPCA" | "Projetada" | null {
   const cal = calendario.find((c) => c.data === data);
   if (!cal || !cal.dia_util) return null;
   const janela = getJanelaAtual(data, vencimento);
   const idx = buildIpcaIndex(registros);
-  return getRegistroIpcaDaCompetencia(janela.competencia, data, idx).tipo;
+  return getRegistroIpcaDaCompetencia(janela.competencia, data, idx, { dataInicio }).tipo;
 }
 
 // ─── Conceitos 6/7/8 — Daily map para CDBLIKE IPCA ───────────────────
@@ -339,7 +340,8 @@ export function buildIpcaCdblikeDailyFactorMap(
     const { tipo, variacaoMensal } = getRegistroIpcaDaCompetencia(
       janela.competencia,
       cal.data,
-      index
+      index,
+      { dataInicio }
     );
     const officialRecord = index.oficial.get(janela.competencia.substring(0, 7));
     const dataDivulgacaoOficial = officialRecord?.data ?? null;
@@ -363,7 +365,7 @@ export function buildIpcaCdblikeDailyFactorMap(
       }
 
       taxaAnterior = dataUtilAnterior
-        ? getRegistroIpcaDaCompetencia(janela.competencia, dataUtilAnterior, index).variacaoMensal
+        ? getRegistroIpcaDaCompetencia(janela.competencia, dataUtilAnterior, index, { dataInicio }).variacaoMensal
         : taxaNova;
 
       const fatorNovo = 1 + taxaNova / 100;
