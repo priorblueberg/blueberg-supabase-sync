@@ -8,6 +8,9 @@ import { fullSyncAfterDelete } from "@/lib/syncEngine";
 import { registerCacheReset } from "@/lib/resetCaches";
 import { useAuth } from "@/hooks/useAuth";
 import { useDataReferencia } from "@/contexts/DataReferenciaContext";
+import { calcularRendaFixaDiario } from "@/lib/rendaFixaEngine";
+import { fetchCalendarioIpcaBatch } from "@/lib/ipcaHelper";
+import { buildIpcaCdblikeEngineMovements, isIpcaCdblike } from "@/lib/ipcaEngineMovements";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -36,6 +39,24 @@ interface Movimentacao {
   origem: string;
   codigo_custodia: number | null;
   modalidade: string | null;
+  indexador?: string | null;
+  engine?: string | null;
+}
+
+interface IpcaProductForMovs {
+  codigo_custodia: number;
+  nome: string | null;
+  data_inicio: string;
+  data_calculo: string | null;
+  taxa: number | null;
+  modalidade: string | null;
+  preco_unitario: number | null;
+  resgate_total: string | null;
+  pagamento: string | null;
+  vencimento: string | null;
+  indexador: string | null;
+  data_limite: string | null;
+  engine: string | null;
 }
 
 type SortField = keyof Movimentacao;
