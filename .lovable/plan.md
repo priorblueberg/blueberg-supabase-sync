@@ -1,58 +1,82 @@
 
+Objetivo: corrigir somente a exibição de juros/amortização para títulos `engine = "CDBLIKE"` + `indexador = "IPCA"`, usando os valores recalculados pelo engine (`DailyRow.jurosPago` e `DailyRow.resgates`) em vez de derivar amortização a partir de movimentações automáticas antigas persistidas.
 
-## Diagnóstico
+## Plano de implementação
 
-Pela rede capturada, a query `GET /calendario_ipca?competencia=gte.2023-11-01&lte.2026-06-01` voltou `[]`. Se a tabela está preenchida no banco, o problema é de **filtro/RLS/permissão de leitura**, não de dado. Sem registros no client, o helper cai no fallback `variacaoMensal = 0` → multiplicador diário = 1 → como a taxa do título é 0%, `dailyMult = 1 * 1 - 1 = 0` todo dia.
+1. Criar um helper isolado para movimentos derivados do engine IPCA
+   - Adicionar uma função utilitária em `src/lib` para transformar `DailyRow[]` em lançamentos de exibição:
+     - `Pagamento de Juros` usando `row.jurosPago`
+     - `Amortização` usando `row.resgates`
+   - A função só será usada quando:
+     - `engine === "CDBLIKE"`
+     - `indexador === "IPCA"`
+   - Não alterará o engine em si, apenas a camada de apresentação.
 
-Sobre a regra "taxa = 0 ⇒ 100% IPCA sem taxa adicional": a fórmula atual já faz isso matematicamente. Com `taxa=0`, `ipcaTaxaRealFactor = (1+0)^(1/252) = 1`, então `dailyMult = ipcaFator - 1`, ou seja, exatamente 100% do IPCA. **O bug real é que `ipcaFator` está vindo 1 porque a leitura de `calendario_ipca` retorna vazia.**
+2. Ajustar o detalhamento do título (`PosicaoDetalheDialog`)
+   - Passar para o diálogo, além de `pagamentosJuros`, as amortizações calculadas pelo engine para o título IPCA.
+   - Para `CDBLIKE + IPCA`:
+     - ocultar/substituir a linha automática persistida de `Resgate no Vencimento` / `Resgate Total` quando ela estiver sendo usada apenas como base antiga;
+     - exibir a amortização com o valor vindo de `engineRow.resgates`;
+     - exibir os juros com o valor vindo de `engineRow.jurosPago`.
+   - Remover, apenas nesse caminho IPCA, a regra atual:
+     - `amortização = movimentacao.valor - jurosDoDia`
+   - Manter a regra atual para CDI, Prefixado, Poupança e demais engines.
 
-## Plano
+3. Ajustar a página geral de movimentações (`MovimentacoesPage`)
+   - Buscar também os dados mínimos de `custodia` + `produtos.engine` para identificar quais `codigo_custodia` são `CDBLIKE + IPCA`.
+   - Para esses códigos, recalcular as linhas via `calcularRendaFixaDiario` com os mesmos insumos já usados nas demais páginas:
+     - calendário de dias úteis;
+     - CDI quando necessário;
+     - movimentações do ativo;
+     - `calendario_ipca` via helper;
+     - parâmetros do título.
+   - Substituir, somente na exibição dessas linhas IPCA, os lançamentos automáticos antigos por lançamentos derivados do engine:
+     - `Pagamento de Juros` = `jurosPago`
+     - `Amortização` = `resgates`
+   - Preservar movimentações manuais e aplicações normalmente.
+   - Preservar o comportamento atual para todos os demais títulos.
 
-### 1. Diagnosticar a leitura de `calendario_ipca`
+4. Cuidar de ordenação, filtros e ações
+   - Garantir que as linhas sintéticas derivadas do engine apareçam com:
+     - `origem = "automatico"`
+     - sem botão de edição/exclusão
+     - `quantidade` e `preco_unitario` como `null`, igual aos pagamentos de juros automáticos.
+   - Manter os filtros por nome e tipo funcionando.
+   - Garantir que a ordenação por data continue estável.
 
-- Rodar `SELECT count(*), min(competencia), max(competencia) FROM calendario_ipca` para confirmar volume e cobertura.
-- Verificar **RLS** da tabela: se houver policy exigindo `user_id = auth.uid()` e os dados forem globais (sem `user_id`), nenhum usuário enxerga. Para tabela de referência de mercado, a policy correta é `SELECT` liberado para `authenticated`.
-- Conferir o range de filtro do helper vs. competências reais (formato `YYYY-MM-01` ok).
+5. Invalidar caches de apresentação quando necessário
+   - Atualizar o cache da `MovimentacoesPage` para considerar a nova composição derivada do engine.
+   - Se necessário, incrementar a versão do cache do engine apenas se houver mudança em parâmetro de cálculo. Como a regra é de exibição, a princípio não será necessário mexer no cálculo nem no cache global do engine.
 
-### 2. Corrigir o acesso
+6. Validação
+   - Conferir que, para `CDBLIKE + IPCA`, a soma:
+     - `Amortização` + `Pagamento de Juros`
+     passa a bater com o total correto recalculado pelo engine.
+   - Conferir que `CDBLIKE + CDI` e `CDBLIKE + Prefixado` continuam usando a lógica anterior.
+   - Rodar build/typecheck para garantir que as alterações não quebrem a aplicação.
 
-Dependendo do achado:
-- **Se RLS bloqueia**: criar migration ajustando a policy de `calendario_ipca` para permitir SELECT a qualquer usuário autenticado (dados públicos de mercado).
-- **Se faltam competências** (ex.: faltam meses do período do título 2024-01..2025-12): seed/import dos meses faltantes.
-- **Se filtro do helper exclui registros**: ajustar `fetchCalendarioIpca` (improvável — o range já tem ±2 meses de folga).
+## Escopo técnico
 
-### 3. Tornar visível quando IPCA está faltando
+Arquivos previstos:
+- `src/components/PosicaoDetalheDialog.tsx`
+- `src/pages/PosicaoConsolidadaPage.tsx`
+- `src/pages/MovimentacoesPage.tsx`
+- possivelmente um novo helper em `src/lib`, por exemplo `engineMovementsDisplay.ts`
 
-No helper `getRegistroIpcaDaCompetencia`, quando cair no fallback `0%`, emitir `console.warn` único por competência ausente (`[IPCA] competência YYYY-MM ausente — usando 0%`). Isso evita que o mesmo sintoma volte silenciosamente no futuro.
+Regra principal:
+```ts
+const isIpcaCdblike = engine === "CDBLIKE" && indexador === "IPCA";
 
-### 4. Confirmar a regra "taxa 0 ⇒ 100% IPCA"
-
-Manter a fórmula atual em `rendaFixaEngine.ts`:
+if (isIpcaCdblike) {
+  juros = engineRow.jurosPago;
+  amortizacao = engineRow.resgates;
+} else {
+  // comportamento atual preservado
+  amortizacao = movimentacao.valor - jurosDoDia;
+}
 ```
-ipcaTaxaRealFactor = (1 + taxa/100)^(1/252)
-dailyMult = ipcaFator * ipcaTaxaRealFactor - 1
-```
-Com `taxa=0` isso já entrega exatamente o IPCA do dia. Nenhuma alteração de fórmula é necessária — só validar via QA depois do dado voltar.
 
-### 5. Forçar recálculo
-
-Bump de versão em `engineCache.ts` para invalidar resultados em cache (`v6-ipca-competencia-fim` → `v7-ipca-fix-leitura`) e re-render da Calculadora/Posição Consolidada.
-
-## QA pós-correção
-
-- Abrir o título "CDB Banco Andbank Brasil IPCA + 0,00%" na Calculadora.
-- Conferir que a coluna **Tipo Taxa** alterna entre `Projetada` e `IPCA` ao longo dos meses.
-- Conferir que a coluna **% IPCA mês** mostra a variação real da competência vigente (não 0%).
-- Conferir que a **Rentabilidade Acumulada** ≈ IPCA acumulado do período (sem spread).
-- Conferir que CDI e Prefixado continuam idênticos (sem regressão).
-
-## Detalhes técnicos
-
-- Arquivos tocados: migration SQL para policy de `calendario_ipca` (se for o caso), `src/lib/ipcaHelper.ts` (warn de competência ausente), `src/lib/engineCache.ts` (bump de versão).
-- Escopo isolado a CDBLIKE + IPCA — CDI e Prefixado intactos.
-- A regra de taxa zero não exige mudança de código: já é consequência direta de `(1+0)^(1/252) = 1`.
-
-## Pergunta antes de implementar
-
-Para escolher a correção certa do passo 2, preciso confirmar **uma coisa**:
-
+Resultado esperado:
+- IPCA usa exclusivamente `jurosPago` e `resgates` calculados pelo engine recalculado.
+- Movimentações persistidas antigas deixam de distorcer a separação entre amortização e juros.
+- CDI e Prefixado permanecem sem alteração de comportamento.
