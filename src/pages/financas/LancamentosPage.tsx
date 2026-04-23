@@ -332,7 +332,7 @@ export default function LancamentosPage() {
                     <TableCell>{nomeCat(l.categoria_id)}</TableCell>
                     <TableCell>{nomeSub(l.subcategoria_id)}</TableCell>
                     <TableCell>{nomeForma(l.forma_pagamento_id)}</TableCell>
-                    <TableCell className={`text-right font-medium ${l.tipo === "credito" ? "text-emerald-600" : "text-rose-600"}`}>
+                    <TableCell className={`text-right font-medium ${l.tipo === "credito" ? "text-primary" : "text-destructive"}`}>
                       {l.tipo === "credito" ? "+" : "-"} {fmtBRL(Number(l.valor))}
                     </TableCell>
                     <TableCell>
