@@ -1,6 +1,6 @@
--- Finanças Pessoais: contas correntes, categorias/subcategorias, formas de pagamento (cartões), lançamentos
+-- Finanças Pessoais — schema completo (contas, categorias, subcategorias, formas de pagamento, lançamentos)
 
--- =============== CONTAS CORRENTES ===============
+-- ============ CONTAS CORRENTES ============
 create table if not exists public.fp_contas (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -21,7 +21,7 @@ create policy "fp_contas_insert_own" on public.fp_contas for insert to authentic
 create policy "fp_contas_update_own" on public.fp_contas for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "fp_contas_delete_own" on public.fp_contas for delete to authenticated using (auth.uid() = user_id);
 
--- =============== CATEGORIAS ===============
+-- ============ CATEGORIAS ============
 create table if not exists public.fp_categorias (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade,
@@ -40,7 +40,7 @@ create policy "fp_categorias_insert_own" on public.fp_categorias for insert to a
 create policy "fp_categorias_update_own" on public.fp_categorias for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "fp_categorias_delete_own" on public.fp_categorias for delete to authenticated using (auth.uid() = user_id);
 
--- =============== SUBCATEGORIAS ===============
+-- ============ SUBCATEGORIAS ============
 create table if not exists public.fp_subcategorias (
   id uuid primary key default gen_random_uuid(),
   categoria_id uuid not null references public.fp_categorias(id) on delete cascade,
@@ -59,7 +59,7 @@ create policy "fp_subcategorias_insert_own" on public.fp_subcategorias for inser
 create policy "fp_subcategorias_update_own" on public.fp_subcategorias for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "fp_subcategorias_delete_own" on public.fp_subcategorias for delete to authenticated using (auth.uid() = user_id);
 
--- =============== FORMAS DE PAGAMENTO (cartões / customizadas) ===============
+-- ============ FORMAS DE PAGAMENTO ============
 create table if not exists public.fp_formas_pagamento (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade,
@@ -78,7 +78,7 @@ create policy "fp_fp_insert_own" on public.fp_formas_pagamento for insert to aut
 create policy "fp_fp_update_own" on public.fp_formas_pagamento for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "fp_fp_delete_own" on public.fp_formas_pagamento for delete to authenticated using (auth.uid() = user_id);
 
--- =============== LANÇAMENTOS ===============
+-- ============ LANÇAMENTOS ============
 create table if not exists public.fp_lancamentos (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -105,7 +105,7 @@ create policy "fp_lanc_delete_own" on public.fp_lancamentos for delete to authen
 create index if not exists idx_fp_lanc_user_data on public.fp_lancamentos(user_id, data);
 create index if not exists idx_fp_lanc_conta on public.fp_lancamentos(conta_id);
 
--- =============== SEEDS PADRÃO ===============
+-- ============ SEEDS PADRÃO ============
 insert into public.fp_categorias (user_id, nome, tipo, is_padrao)
 select * from (values
   (null::uuid, 'Salário', 'credito', true),
