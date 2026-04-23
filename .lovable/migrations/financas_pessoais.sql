@@ -24,7 +24,7 @@ create policy "fp_contas_delete_own" on public.fp_contas for delete to authentic
 -- =============== CATEGORIAS ===============
 create table if not exists public.fp_categorias (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade, -- null = padrão do sistema
+  user_id uuid references auth.users(id) on delete cascade,
   nome text not null,
   tipo text not null check (tipo in ('credito','debito')),
   is_padrao boolean not null default false,
@@ -64,7 +64,7 @@ create table if not exists public.fp_formas_pagamento (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade,
   nome text not null,
-  tipo text not null, -- dinheiro, debito, credito, pix, boleto, transferencia, cartao_credito, cartao_debito
+  tipo text not null,
   is_padrao boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -106,7 +106,6 @@ create index if not exists idx_fp_lanc_user_data on public.fp_lancamentos(user_i
 create index if not exists idx_fp_lanc_conta on public.fp_lancamentos(conta_id);
 
 -- =============== SEEDS PADRÃO ===============
--- Categorias padrão (user_id null) — só insere se ainda não existir
 insert into public.fp_categorias (user_id, nome, tipo, is_padrao)
 select * from (values
   (null::uuid, 'Salário', 'credito', true),
@@ -125,7 +124,6 @@ where not exists (
   where c.user_id is null and c.nome = v.nome and c.tipo = v.tipo
 );
 
--- Subcategorias padrão para algumas categorias
 insert into public.fp_subcategorias (categoria_id, user_id, nome, is_padrao)
 select c.id, null, s.nome, true
 from public.fp_categorias c
@@ -153,7 +151,6 @@ where not exists (
   where x.user_id is null and x.categoria_id = c.id and x.nome = s.nome
 );
 
--- Formas de pagamento padrão
 insert into public.fp_formas_pagamento (user_id, nome, tipo, is_padrao)
 select * from (values
   (null::uuid, 'Dinheiro', 'dinheiro', true),
