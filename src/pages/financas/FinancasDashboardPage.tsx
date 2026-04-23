@@ -97,7 +97,7 @@ export default function FinancasDashboardPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold text-emerald-600">{fmtBRL(totalCred)}</div>
+            <div className="text-2xl font-semibold text-primary">{fmtBRL(totalCred)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -106,7 +106,7 @@ export default function FinancasDashboardPage() {
             <TrendingDown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold text-rose-600">{fmtBRL(totalDeb)}</div>
+            <div className="text-2xl font-semibold text-destructive">{fmtBRL(totalDeb)}</div>
           </CardContent>
         </Card>
       </div>
