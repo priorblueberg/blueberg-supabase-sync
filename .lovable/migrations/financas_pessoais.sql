@@ -12,6 +12,10 @@ create table if not exists public.fp_contas (
   created_at timestamptz not null default now()
 );
 alter table public.fp_contas enable row level security;
+drop policy if exists "fp_contas_select_own" on public.fp_contas;
+drop policy if exists "fp_contas_insert_own" on public.fp_contas;
+drop policy if exists "fp_contas_update_own" on public.fp_contas;
+drop policy if exists "fp_contas_delete_own" on public.fp_contas;
 create policy "fp_contas_select_own" on public.fp_contas for select to authenticated using (auth.uid() = user_id);
 create policy "fp_contas_insert_own" on public.fp_contas for insert to authenticated with check (auth.uid() = user_id);
 create policy "fp_contas_update_own" on public.fp_contas for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -27,6 +31,10 @@ create table if not exists public.fp_categorias (
   created_at timestamptz not null default now()
 );
 alter table public.fp_categorias enable row level security;
+drop policy if exists "fp_categorias_select" on public.fp_categorias;
+drop policy if exists "fp_categorias_insert_own" on public.fp_categorias;
+drop policy if exists "fp_categorias_update_own" on public.fp_categorias;
+drop policy if exists "fp_categorias_delete_own" on public.fp_categorias;
 create policy "fp_categorias_select" on public.fp_categorias for select to authenticated using (user_id is null or auth.uid() = user_id);
 create policy "fp_categorias_insert_own" on public.fp_categorias for insert to authenticated with check (auth.uid() = user_id);
 create policy "fp_categorias_update_own" on public.fp_categorias for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -42,6 +50,10 @@ create table if not exists public.fp_subcategorias (
   created_at timestamptz not null default now()
 );
 alter table public.fp_subcategorias enable row level security;
+drop policy if exists "fp_subcategorias_select" on public.fp_subcategorias;
+drop policy if exists "fp_subcategorias_insert_own" on public.fp_subcategorias;
+drop policy if exists "fp_subcategorias_update_own" on public.fp_subcategorias;
+drop policy if exists "fp_subcategorias_delete_own" on public.fp_subcategorias;
 create policy "fp_subcategorias_select" on public.fp_subcategorias for select to authenticated using (user_id is null or auth.uid() = user_id);
 create policy "fp_subcategorias_insert_own" on public.fp_subcategorias for insert to authenticated with check (auth.uid() = user_id);
 create policy "fp_subcategorias_update_own" on public.fp_subcategorias for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -57,6 +69,10 @@ create table if not exists public.fp_formas_pagamento (
   created_at timestamptz not null default now()
 );
 alter table public.fp_formas_pagamento enable row level security;
+drop policy if exists "fp_fp_select" on public.fp_formas_pagamento;
+drop policy if exists "fp_fp_insert_own" on public.fp_formas_pagamento;
+drop policy if exists "fp_fp_update_own" on public.fp_formas_pagamento;
+drop policy if exists "fp_fp_delete_own" on public.fp_formas_pagamento;
 create policy "fp_fp_select" on public.fp_formas_pagamento for select to authenticated using (user_id is null or auth.uid() = user_id);
 create policy "fp_fp_insert_own" on public.fp_formas_pagamento for insert to authenticated with check (auth.uid() = user_id);
 create policy "fp_fp_update_own" on public.fp_formas_pagamento for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -77,6 +93,10 @@ create table if not exists public.fp_lancamentos (
   created_at timestamptz not null default now()
 );
 alter table public.fp_lancamentos enable row level security;
+drop policy if exists "fp_lanc_select_own" on public.fp_lancamentos;
+drop policy if exists "fp_lanc_insert_own" on public.fp_lancamentos;
+drop policy if exists "fp_lanc_update_own" on public.fp_lancamentos;
+drop policy if exists "fp_lanc_delete_own" on public.fp_lancamentos;
 create policy "fp_lanc_select_own" on public.fp_lancamentos for select to authenticated using (auth.uid() = user_id);
 create policy "fp_lanc_insert_own" on public.fp_lancamentos for insert to authenticated with check (auth.uid() = user_id);
 create policy "fp_lanc_update_own" on public.fp_lancamentos for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -86,19 +106,24 @@ create index if not exists idx_fp_lanc_user_data on public.fp_lancamentos(user_i
 create index if not exists idx_fp_lanc_conta on public.fp_lancamentos(conta_id);
 
 -- =============== SEEDS PADRÃO ===============
--- Categorias padrão (user_id null)
-insert into public.fp_categorias (user_id, nome, tipo, is_padrao) values
-  (null, 'Salário', 'credito', true),
-  (null, 'Rendimentos', 'credito', true),
-  (null, 'Outras Receitas', 'credito', true),
-  (null, 'Alimentação', 'debito', true),
-  (null, 'Moradia', 'debito', true),
-  (null, 'Transporte', 'debito', true),
-  (null, 'Saúde', 'debito', true),
-  (null, 'Educação', 'debito', true),
-  (null, 'Lazer', 'debito', true),
-  (null, 'Outras Despesas', 'debito', true)
-on conflict do nothing;
+-- Categorias padrão (user_id null) — só insere se ainda não existir
+insert into public.fp_categorias (user_id, nome, tipo, is_padrao)
+select * from (values
+  (null::uuid, 'Salário', 'credito', true),
+  (null::uuid, 'Rendimentos', 'credito', true),
+  (null::uuid, 'Outras Receitas', 'credito', true),
+  (null::uuid, 'Alimentação', 'debito', true),
+  (null::uuid, 'Moradia', 'debito', true),
+  (null::uuid, 'Transporte', 'debito', true),
+  (null::uuid, 'Saúde', 'debito', true),
+  (null::uuid, 'Educação', 'debito', true),
+  (null::uuid, 'Lazer', 'debito', true),
+  (null::uuid, 'Outras Despesas', 'debito', true)
+) as v(user_id, nome, tipo, is_padrao)
+where not exists (
+  select 1 from public.fp_categorias c
+  where c.user_id is null and c.nome = v.nome and c.tipo = v.tipo
+);
 
 -- Subcategorias padrão para algumas categorias
 insert into public.fp_subcategorias (categoria_id, user_id, nome, is_padrao)
@@ -123,14 +148,22 @@ join (values
   ('Lazer','Streaming'),
   ('Lazer','Viagem')
 ) as s(cat, nome) on s.cat = c.nome and c.user_id is null
-on conflict do nothing;
+where not exists (
+  select 1 from public.fp_subcategorias x
+  where x.user_id is null and x.categoria_id = c.id and x.nome = s.nome
+);
 
 -- Formas de pagamento padrão
-insert into public.fp_formas_pagamento (user_id, nome, tipo, is_padrao) values
-  (null, 'Dinheiro', 'dinheiro', true),
-  (null, 'Débito', 'debito', true),
-  (null, 'Crédito', 'credito', true),
-  (null, 'Pix', 'pix', true),
-  (null, 'Boleto', 'boleto', true),
-  (null, 'Transferência', 'transferencia', true)
-on conflict do nothing;
+insert into public.fp_formas_pagamento (user_id, nome, tipo, is_padrao)
+select * from (values
+  (null::uuid, 'Dinheiro', 'dinheiro', true),
+  (null::uuid, 'Débito', 'debito', true),
+  (null::uuid, 'Crédito', 'credito', true),
+  (null::uuid, 'Pix', 'pix', true),
+  (null::uuid, 'Boleto', 'boleto', true),
+  (null::uuid, 'Transferência', 'transferencia', true)
+) as v(user_id, nome, tipo, is_padrao)
+where not exists (
+  select 1 from public.fp_formas_pagamento f
+  where f.user_id is null and f.nome = v.nome
+);
