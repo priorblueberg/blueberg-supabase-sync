@@ -23,9 +23,6 @@ const ControleCarteirasPage = lazy(() => import("@/pages/ControleCarteirasPage")
 const AnaliseIndividualPage = lazy(() => import("@/pages/AnaliseIndividualPage"));
 const AdminPage = lazy(() => import("@/pages/AdminPage"));
 const ConfiguracoesPage = lazy(() => import("@/pages/ConfiguracoesPage"));
-const FinancasDashboardPage = lazy(() => import("@/pages/financas/FinancasDashboardPage"));
-const ContasCorrentesPage = lazy(() => import("@/pages/financas/ContasCorrentesPage"));
-const LancamentosPage = lazy(() => import("@/pages/financas/LancamentosPage"));
 
 // Lighter pages loaded eagerly or lazily
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
@@ -134,9 +131,6 @@ const App = () => (
                   <Route path="/usuario" element={<div><h1 className="text-lg font-semibold text-foreground">Usuário</h1></div>} />
                   <Route path="/admin" element={<AdminPage />} />
                   <Route path="/calculadora" element={<CalculadoraPage />} />
-                  <Route path="/financas" element={<FinancasDashboardPage />} />
-                  <Route path="/financas/contas" element={<ContasCorrentesPage />} />
-                  <Route path="/financas/lancamentos" element={<LancamentosPage />} />
                 </Route>
               </Route>
               <Route path="*" element={<NotFound />} />

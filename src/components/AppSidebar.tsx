@@ -4,6 +4,7 @@ import {
   ArrowLeftRight,
   Vault,
   DollarSign,
+  
   Settings,
   Shield,
   Briefcase,
@@ -11,7 +12,6 @@ import {
   ClipboardList,
   ChevronsLeft,
   ChevronsRight,
-  PiggyBank,
 } from "lucide-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
@@ -23,7 +23,6 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { title: "Finanças Pessoais", url: "/financas", icon: PiggyBank },
   { title: "Carteira de Investimentos", url: "/carteira", icon: LayoutGrid },
   { title: "Posição Consolidada", url: "/posicao-consolidada", icon: ClipboardList },
   { title: "Movimentações", url: "/movimentacoes", icon: ArrowLeftRight },
@@ -45,11 +44,8 @@ export function AppSidebar({
 }) {
   const location = useLocation();
   const isAdmin = useIsAdmin();
-  const isActive = (url: string) => {
-    if (url === "/carteira") return location.pathname.startsWith("/carteira");
-    if (url === "/financas") return location.pathname.startsWith("/financas");
-    return location.pathname === url;
-  };
+  const isActive = (url: string) =>
+    url === "/carteira" ? location.pathname.startsWith("/carteira") : location.pathname === url;
 
   const visibleItems = menuItems.filter(item => !item.adminOnly || isAdmin);
   return (
