@@ -14,7 +14,199 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      fp_categorias: {
+        Row: {
+          created_at: string
+          id: string
+          is_padrao: boolean
+          nome: string
+          tipo: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_padrao?: boolean
+          nome: string
+          tipo: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_padrao?: boolean
+          nome?: string
+          tipo?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      fp_contas: {
+        Row: {
+          ativa: boolean
+          banco: string | null
+          created_at: string
+          data_inicio: string
+          id: string
+          nome: string
+          saldo_inicial: number
+          user_id: string
+        }
+        Insert: {
+          ativa?: boolean
+          banco?: string | null
+          created_at?: string
+          data_inicio: string
+          id?: string
+          nome: string
+          saldo_inicial?: number
+          user_id: string
+        }
+        Update: {
+          ativa?: boolean
+          banco?: string | null
+          created_at?: string
+          data_inicio?: string
+          id?: string
+          nome?: string
+          saldo_inicial?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fp_formas_pagamento: {
+        Row: {
+          created_at: string
+          id: string
+          is_padrao: boolean
+          nome: string
+          tipo: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_padrao?: boolean
+          nome: string
+          tipo: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_padrao?: boolean
+          nome?: string
+          tipo?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      fp_lancamentos: {
+        Row: {
+          categoria_id: string | null
+          conta_id: string
+          created_at: string
+          data: string
+          descricao: string | null
+          forma_pagamento_id: string | null
+          id: string
+          subcategoria_id: string | null
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          categoria_id?: string | null
+          conta_id: string
+          created_at?: string
+          data: string
+          descricao?: string | null
+          forma_pagamento_id?: string | null
+          id?: string
+          subcategoria_id?: string | null
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Update: {
+          categoria_id?: string | null
+          conta_id?: string
+          created_at?: string
+          data?: string
+          descricao?: string | null
+          forma_pagamento_id?: string | null
+          id?: string
+          subcategoria_id?: string | null
+          tipo?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fp_lancamentos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "fp_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fp_lancamentos_conta_id_fkey"
+            columns: ["conta_id"]
+            isOneToOne: false
+            referencedRelation: "fp_contas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fp_lancamentos_forma_pagamento_id_fkey"
+            columns: ["forma_pagamento_id"]
+            isOneToOne: false
+            referencedRelation: "fp_formas_pagamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fp_lancamentos_subcategoria_id_fkey"
+            columns: ["subcategoria_id"]
+            isOneToOne: false
+            referencedRelation: "fp_subcategorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fp_subcategorias: {
+        Row: {
+          categoria_id: string
+          created_at: string
+          id: string
+          is_padrao: boolean
+          nome: string
+          user_id: string | null
+        }
+        Insert: {
+          categoria_id: string
+          created_at?: string
+          id?: string
+          is_padrao?: boolean
+          nome: string
+          user_id?: string | null
+        }
+        Update: {
+          categoria_id?: string
+          created_at?: string
+          id?: string
+          is_padrao?: boolean
+          nome?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fp_subcategorias_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "fp_categorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
