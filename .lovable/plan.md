@@ -1,82 +1,74 @@
 
-Objetivo: corrigir somente a exibição de juros/amortização para títulos `engine = "CDBLIKE"` + `indexador = "IPCA"`, usando os valores recalculados pelo engine (`DailyRow.jurosPago` e `DailyRow.resgates`) em vez de derivar amortização a partir de movimentações automáticas antigas persistidas.
+## Objetivo
 
-## Plano de implementação
+Criar a nova página **Controle de Gastos** acessível pelo menu vertical, replicando a estrutura visual do mockup enviado. Nesta etapa, **sem qualquer integração com o banco** — toda a página usará dados mockados em memória.
 
-1. Criar um helper isolado para movimentos derivados do engine IPCA
-   - Adicionar uma função utilitária em `src/lib` para transformar `DailyRow[]` em lançamentos de exibição:
-     - `Pagamento de Juros` usando `row.jurosPago`
-     - `Amortização` usando `row.resgates`
-   - A função só será usada quando:
-     - `engine === "CDBLIKE"`
-     - `indexador === "IPCA"`
-   - Não alterará o engine em si, apenas a camada de apresentação.
+## Escopo
 
-2. Ajustar o detalhamento do título (`PosicaoDetalheDialog`)
-   - Passar para o diálogo, além de `pagamentosJuros`, as amortizações calculadas pelo engine para o título IPCA.
-   - Para `CDBLIKE + IPCA`:
-     - ocultar/substituir a linha automática persistida de `Resgate no Vencimento` / `Resgate Total` quando ela estiver sendo usada apenas como base antiga;
-     - exibir a amortização com o valor vindo de `engineRow.resgates`;
-     - exibir os juros com o valor vindo de `engineRow.jurosPago`.
-   - Remover, apenas nesse caminho IPCA, a regra atual:
-     - `amortização = movimentacao.valor - jurosDoDia`
-   - Manter a regra atual para CDI, Prefixado, Poupança e demais engines.
+1. **Menu lateral** (`src/components/AppSidebar.tsx`)
+   - Adicionar novo item `"Controle de Gastos"` com ícone `Wallet` (lucide-react), apontando para `/controle-gastos`.
+   - Posicionar logo abaixo de "Proventos Recebidos".
+   - Sem `adminOnly` (visível para todos).
 
-3. Ajustar a página geral de movimentações (`MovimentacoesPage`)
-   - Buscar também os dados mínimos de `custodia` + `produtos.engine` para identificar quais `codigo_custodia` são `CDBLIKE + IPCA`.
-   - Para esses códigos, recalcular as linhas via `calcularRendaFixaDiario` com os mesmos insumos já usados nas demais páginas:
-     - calendário de dias úteis;
-     - CDI quando necessário;
-     - movimentações do ativo;
-     - `calendario_ipca` via helper;
-     - parâmetros do título.
-   - Substituir, somente na exibição dessas linhas IPCA, os lançamentos automáticos antigos por lançamentos derivados do engine:
-     - `Pagamento de Juros` = `jurosPago`
-     - `Amortização` = `resgates`
-   - Preservar movimentações manuais e aplicações normalmente.
-   - Preservar o comportamento atual para todos os demais títulos.
+2. **Rota** (`src/App.tsx`)
+   - Importar `ControleGastosPage` via `lazy()`.
+   - Registrar `<Route path="/controle-gastos" element={<ControleGastosPage />} />` dentro do bloco protegido (`AppLayout`).
 
-4. Cuidar de ordenação, filtros e ações
-   - Garantir que as linhas sintéticas derivadas do engine apareçam com:
-     - `origem = "automatico"`
-     - sem botão de edição/exclusão
-     - `quantidade` e `preco_unitario` como `null`, igual aos pagamentos de juros automáticos.
-   - Manter os filtros por nome e tipo funcionando.
-   - Garantir que a ordenação por data continue estável.
+3. **Nova página** (`src/pages/ControleGastosPage.tsx`)
+   Replicar a estrutura do mockup, usando os componentes já existentes do projeto (`Card`, `Table`, `recharts`) e o tema atual (claro com acentos azuis — sem forçar tema escuro, manter consistência com o restante do app).
 
-5. Invalidar caches de apresentação quando necessário
-   - Atualizar o cache da `MovimentacoesPage` para considerar a nova composição derivada do engine.
-   - Se necessário, incrementar a versão do cache do engine apenas se houver mudança em parâmetro de cálculo. Como a regra é de exibição, a princípio não será necessário mexer no cálculo nem no cache global do engine.
+   Seções, de cima para baixo:
 
-6. Validação
-   - Conferir que, para `CDBLIKE + IPCA`, a soma:
-     - `Amortização` + `Pagamento de Juros`
-     passa a bater com o total correto recalculado pelo engine.
-   - Conferir que `CDBLIKE + CDI` e `CDBLIKE + Prefixado` continuam usando a lógica anterior.
-   - Rodar build/typecheck para garantir que as alterações não quebrem a aplicação.
+   a) **Cabeçalho**
+      - Título: "Balanço de Despesas"
+      - Badge à direita com período (ex: `PERÍODO • 01.JAN.2026 → 04.2026 • YTD`).
 
-## Escopo técnico
+   b) **Linha de KPIs** (3 cards lado a lado)
+      - **Total Consumo Acumulado** — valor grande, label de apoio "Acumulado de janeiro a abril".
+      - **Média Mensal** — valor + label "Média de 4 meses".
+      - **Mês de Pico** — valor + label do mês (ex: "Março").
 
-Arquivos previstos:
-- `src/components/PosicaoDetalheDialog.tsx`
-- `src/pages/PosicaoConsolidadaPage.tsx`
-- `src/pages/MovimentacoesPage.tsx`
-- possivelmente um novo helper em `src/lib`, por exemplo `engineMovementsDisplay.ts`
+   c) **Despesas Mensais** (card com gráfico)
+      - `BarChart` (recharts) com 12 meses (jan–dez), valores mockados apenas para os 4 primeiros meses, demais zerados/cinza.
+      - Linha tracejada horizontal mostrando "Média acumulada".
+      - Legenda: "Total Mensal", "Média Acumulada", "Projeção".
 
-Regra principal:
-```ts
-const isIpcaCdblike = engine === "CDBLIKE" && indexador === "IPCA";
+   d) **Detalhamento por Categoria** (card com tabela)
+      - Colunas: índice (#), categoria, barra de progresso proporcional, %, valor.
+      - Mock com ~11 categorias (Outros, Compras, Saúde, Alimentação, Contas da Casa, Lazer, Assinaturas, Educação, Automóvel, Transporte, Despesas Financeiras).
+      - Linha clicável (chevron à direita) — sem ação real nesta etapa.
+      - Texto "CLIQUE PARA EXPANDIR" no header.
 
-if (isIpcaCdblike) {
-  juros = engineRow.jurosPago;
-  amortizacao = engineRow.resgates;
-} else {
-  // comportamento atual preservado
-  amortizacao = movimentacao.valor - jurosDoDia;
-}
-```
+   e) **Movimentações Segregadas** (card com tabela agrupada)
+      - Badge à direita: "NÃO CONTABILIZADAS NO TOTAL".
+      - Agrupamento por conta (ex: "Conta Maurício") com total à direita.
+      - Linhas filhas: data, descrição, badge categoria, valor.
+      - Mock com 1 grupo e 3 movimentações.
 
-Resultado esperado:
-- IPCA usa exclusivamente `jurosPago` e `resgates` calculados pelo engine recalculado.
-- Movimentações persistidas antigas deixam de distorcer a separação entre amortização e juros.
-- CDI e Prefixado permanecem sem alteração de comportamento.
+4. **Dados mockados**
+   - Constantes locais no topo do arquivo (`MOCK_KPIS`, `MOCK_MONTHLY`, `MOCK_CATEGORIAS`, `MOCK_SEGREGADAS`).
+   - Sem chamadas a `supabase`, sem hooks de dados.
+
+5. **Formatação**
+   - Reutilizar helper local `fmtBrl` (mesmo padrão das outras páginas: `Intl` pt-BR, BRL).
+   - Datas em pt-BR.
+
+## Detalhes técnicos
+
+- **Tema**: o app é claro (ver `src/index.css`); a página seguirá o tema claro padrão usando `Card`, `bg-card`, `text-foreground`, `text-muted-foreground` e `--primary` para acentos. O mockup escuro serve apenas como referência de **layout e hierarquia**, não de cores. (Se desejar tema escuro só nesta página, posso ajustar em iteração seguinte.)
+- **Ícone do menu**: `Wallet` de `lucide-react` (já usado no projeto pela família lucide).
+- **Gráfico**: `BarChart` + `ReferenceLine` do recharts (mesmo padrão de `ProventosRecebidosPage`).
+- **Sem alterações** em: `SubTabs`, contextos, engines, helpers de IPCA/CDB, ou qualquer arquivo de cálculo.
+- **Sem migrações** de banco.
+
+## Arquivos afetados
+
+- editar `src/components/AppSidebar.tsx` — adicionar item de menu
+- editar `src/App.tsx` — registrar rota lazy
+- criar `src/pages/ControleGastosPage.tsx` — nova página com mock
+
+## Resultado esperado
+
+- Novo item "Controle de Gastos" aparece no menu lateral.
+- Ao clicar, abre a página `/controle-gastos` com layout fiel ao mockup (KPIs, gráfico mensal, tabela de categorias, movimentações segregadas), tudo populado por dados estáticos.
+- Nenhuma página existente é afetada; nenhuma chamada ao backend é feita.
