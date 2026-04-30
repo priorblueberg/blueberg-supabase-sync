@@ -16,20 +16,12 @@ const AuthPage = () => {
     e.preventDefault();
     setLoading(true);
 
-    // Check if email exists in profiles
-    const { data: exists } = await supabase.rpc("check_email_exists", { p_email: email });
-
-    if (!exists) {
-      toast.error("Este e-mail não está cadastrado. Entre em contato com o administrador.");
-      setLoading(false);
-      return;
-    }
-
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      if (error.message?.toLowerCase().includes("invalid login credentials")) {
-        toast.error("Senha incorreta. Verifique seus dados e tente novamente.");
-      } else if (error.message?.toLowerCase().includes("email not confirmed")) {
+      const msg = error.message?.toLowerCase() ?? "";
+      if (msg.includes("invalid login credentials")) {
+        toast.error("E-mail ou senha incorretos. Verifique seus dados e tente novamente.");
+      } else if (msg.includes("email not confirmed")) {
         toast.error("E-mail ainda não confirmado. Verifique sua caixa de entrada.");
       } else {
         toast.error(error.message);
